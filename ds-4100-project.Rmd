@@ -27,6 +27,17 @@ av_get(av_fun = "SECTOR")
 ```
 
 ```{r}
-av_get(symbol = "MSFT", av_fun = "AD", interval = "monthly", time_period = 60)
+#av_get(symbol = "MSFT", av_fun = "AD", interval = "monthly", time_period = 60)
+
+data_get <- function(ticker) {
+  av_get(symbol = ticker, av_fun = "AD", interval = "monthly", time_period = 60)
+}
+```
+
+```{r}
+stocks_test = c("MSFT","TSLA","FB","AAPL")
+for (n in stocks_test) {
+  print(data_get(n))
+}
 ```
 
