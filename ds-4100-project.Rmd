@@ -7,12 +7,10 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(alphavantager)
 library(rvest)
 library(tidyverse)
 library(RSQLite)
 library(fTrading)
-av_api_key("KEI93A3FCAX5K5R9")
 ds4100_project_db <- dbConnect(SQLite(), dbname = "ds4100_project_db.sqlite")
 ```
 
@@ -22,14 +20,6 @@ sp500_page <- read_html("https://en.wikipedia.org/wiki/List_of_S%26P_500_compani
 sp500_tickers <- sp500_page %>% html_nodes("#constituents td:nth-child(2)") %>% html_text()
 ```
 
-```{r}
-# Alpha Vantage API key: KEI93A3FCAX5K5R9
-av_get(symbol = "^GSPC", av_fun = "TIME_SERIES_DAILY_ADJUSTED", interval = "1min", outputsize = "full")
-```
-
-```{r}
-av_get(av_fun = "SECTOR")
-```
 
 #get tibble of dates, adj closing price, and volume for given ticker.
 ```{r}
@@ -77,6 +67,14 @@ get_split_dates <- function(ticker) {
 }
 ```
 
+
+```{r}
+sp500_tickers <- sp500_tickers[1:5]
+for(ticker in sp500_tickers) {
+  assign(paste(ticker,"_df", sep = ""),get_stock_data(ticker))
+}
+```
+
 ```{r}
 EWMA(MMM_df$adjClosing, lambda = .1) #exponentially weighted moving average
 ```
@@ -103,14 +101,6 @@ rsiTA(MMM_df$adjClosing) #relative strength index
 
 ```{r}
 SMA(MMM_df$adjClosing) #simple moving average
-```
-
-
-```{r}
-sp500_tickers <- sp500_tickers[1:5]
-for(ticker in sp500_tickers) {
-  assign(paste(ticker,"_df", sep = ""),get_stock_data(ticker))
-}
 ```
 
 ```{r, table_setup, message=FALSE, echo=TRUE, warning=FALSE}
