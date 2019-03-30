@@ -11,13 +11,15 @@ library(alphavantager)
 library(rvest)
 library(tryCatchLog)
 library(tidyverse)
+library(xml2)
 av_api_key("KEI93A3FCAX5K5R9")
 ```
 
 #retrieve S&P 500 company tickers
 ```{r}
 sp500_page <- read_html("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies")
-sp500_names <- sp500_page %>% html_nodes("#constituents td:nth-child(2)") %>% html_text()
+sp500_names <- sp500_page %>% html_nodes("#constituents td:nth-child(2)") %>%
+html_text()
 ```
 
 ```{r}
@@ -29,33 +31,52 @@ av_get(symbol = "^GSPC", av_fun = "TIME_SERIES_DAILY_ADJUSTED", interval = "60mi
 av_get(av_fun = "SECTOR")
 ```
 
-#loop through the sp500 names and pulls adj closing and volume for that stock.
+#get tibble of dates, adj closing price, and volume for given ticker.
 ```{r}
-get_sp500_price_and_volume <- function() {
-  count_until_pause <- 15
-  for (n in sp500_names) {
-    #alphavantage has max 5 per minute. Waits so we can call again
-    if (count_until_pause == 1) {
-      Sys.sleep(61)
-      count_until_pause <- 15
-    }
+get_stock_data <- function(ticker) {
   
-    # get ticker data. Alternate between keys 
-    if (count_until_pause <= 5) {
-      data_get(n, 1)
-    } else if (count_until_pause <= 10) {
-      data_get(n, 2)
-    } else {
-      data_get(n, 3)
-    }
-    
-    count_until_pause <- count_until_pause - 1
-  }
+  yahoo_finance_url <- paste("https://finance.yahoo.com/quote/", ticker, "/history?period1=915339600&period2=1553313600&interval=1mo&filter=history&frequency=1mo", sep = "")
+  page <- read_html(yahoo_finance_url)
+  
+  div_dates <- get_div_dates(ticker)
+  split_dates <- get_split_dates(ticker)
+  
+  root <- html_node(page, 'body')
+  body <- root %>% html_nodes('tbody tr')
+
+  #returns the dates, removing dates that correspond to dividends
+  dates <- body %>% html_nodes('td:nth-child(1)') %>% html_text()
+  dates <- dates[which((!dates %in% div_dates) && (!dates %in% split_dates))]
+  
+  adjClosings <- body %>% html_nodes('td:nth-child(6)') %>% html_text()
+  volumes <- body %>% html_nodes('td:nth-child(7)') %>% html_text()
+
+  tibble(
+    date = dates,
+    adjClosing = adjClosings,
+    volume = volumes
+  )
 }
 
-data_get <- function(ticker, current_key) {
-  print(switch (current_key, "KEI93A3FCAX5K5R9", "UKGGXP46EHI7K1FB", "1MS48Q9F2SIQSHK7"))
+#returns a list of dividend dates. we want to remove these dates from the historical data
+get_div_dates <- function(ticker) {
+  yahoo_finance_div_url <- paste("https://finance.yahoo.com/quote/", ticker, "/history?period1=915339600&period2=1553313600&interval=1mo&filter=div&frequency=1mo", sep = "")
   
-  #av_get(symbol = ticker, av_fun = "AD", interval = "monthly", time_period = 60)
+  read_html(yahoo_finance_div_url) %>% html_node('body') %>% html_nodes('tbody tr td:nth-child(1)') %>% html_text()
+}
+
+#returns a list of stock dates. we want to remove these dates from the historical data
+get_split_dates <- function(ticker) {
+  yahoo_finance_split_url <- paste("https://finance.yahoo.com/quote/", ticker, "/history?period1=915339600&period2=1553313600&interval=1mo&filter=split&frequency=1mo", sep = "")
+  
+  read_html(yahoo_finance_split_url) %>% html_node('body') %>% html_nodes('tbody tr td:nth-child(1)') %>% html_text()
+}
+```
+
+
+```{r}
+sp500_names <- sp500_names[1:5]
+for(ticker in sp500_names) {
+  assign(paste(ticker,"_db", sep = ""),get_stock_data(ticker))
 }
 ```
