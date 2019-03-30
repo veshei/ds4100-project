@@ -7,44 +7,100 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(alphavantager)
 library(rvest)
 library(tidyverse)
 library(RSQLite)
-av_api_key("KEI93A3FCAX5K5R9")
+library(fTrading)
 ds4100_project_db <- dbConnect(SQLite(), dbname = "ds4100_project_db.sqlite")
 ```
 
 #retrieve S&P 500 company tickers
 ```{r}
 sp500_page <- read_html("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies")
-
 sp500_tickers <- sp500_page %>% html_nodes("#constituents td:nth-child(2)") %>% html_text()
-sp500_tickers
 ```
 
+
+#get tibble of dates, adj closing price, and volume for given ticker.
 ```{r}
-# Alpha Vantage API key: KEI93A3FCAX5K5R9
-av_get(symbol = "^GSPC", av_fun = "TIME_SERIES_DAILY_ADJUSTED", interval = "1min", outputsize = "full")
+get_stock_data <- function(ticker) {
+  
+  yahoo_finance_url <- paste("https://finance.yahoo.com/quote/", ticker, "/history?period1=915339600&period2=1553313600&interval=1mo&filter=history&frequency=1mo", sep = "")
+  page <- read_html(yahoo_finance_url)
+  
+  div_dates <- get_div_dates(ticker)
+  split_dates <- get_split_dates(ticker)
+  
+  root <- html_node(page, 'body')
+  body <- root %>% html_nodes('tbody tr')
+
+  #returns the dates, removing dates that correspond to dividends
+  dates <- body %>% html_nodes('td:nth-child(1)') %>% html_text()
+  dates <- dates[which((!dates %in% div_dates) && (!dates %in% split_dates))]
+  
+  highs <- body %>% html_nodes('td:nth-child(3)') %>% html_text() %>% str_replace_all(",","") %>% as.numeric()
+  lows <- body %>% html_nodes('td:nth-child(4)') %>% html_text() %>% str_replace_all(",","") %>% as.numeric()
+  adjClosings <- body %>% html_nodes('td:nth-child(6)') %>% html_text() %>% str_replace_all(",","") %>% as.numeric()
+  volumes <- body %>% html_nodes('td:nth-child(7)') %>% html_text() %>% str_replace_all(",","") %>% as.numeric()
+
+  tibble(
+    date = dates,
+    adjClosing = adjClosings,
+    volume = volumes,
+    high = highs,
+    low = lows
+  )
+}
+
+#returns a list of dividend dates. we want to remove these dates from the historical data
+get_div_dates <- function(ticker) {
+  yahoo_finance_div_url <- paste("https://finance.yahoo.com/quote/", ticker, "/history?period1=915339600&period2=1553313600&interval=1mo&filter=div&frequency=1mo", sep = "")
+  
+  read_html(yahoo_finance_div_url) %>% html_node('body') %>% html_nodes('tbody tr td:nth-child(1)') %>% html_text()
+}
+
+#returns a list of stock dates. we want to remove these dates from the historical data
+get_split_dates <- function(ticker) {
+  yahoo_finance_split_url <- paste("https://finance.yahoo.com/quote/", ticker, "/history?period1=915339600&period2=1553313600&interval=1mo&filter=split&frequency=1mo", sep = "")
+  
+  read_html(yahoo_finance_split_url) %>% html_node('body') %>% html_nodes('tbody tr td:nth-child(1)') %>% html_text()
+}
 ```
 
-```{r}
-av_get(av_fun = "SECTOR")
-```
 
 ```{r}
-# av_get(symbol = "MSFT", av_fun = "AD", interval = "monthly", time_period = 60)
-
-data_get <- function(ticker) {
-  av_get(symbol = ticker, av_fun = "AD", interval = "monthly", time_period = 60)
+sp500_tickers <- sp500_tickers[1:5]
+for(ticker in sp500_tickers) {
+  assign(paste(ticker,"_df", sep = ""),get_stock_data(ticker))
 }
 ```
 
 ```{r}
-stocks_test = c("MSFT","TSLA","FB","AAPL")
-for (n in stocks_test) {
-  print(data_get(n))
-}
+EWMA(MMM_df$adjClosing, lambda = .1) #exponentially weighted moving average
+```
+```{r}
+momTA(MMM_df$adjClosing) #momentum 
+```
+```{r}
+macdTA(MMM_df$adjClosing) #moving average conversion to divergents
+```
+
+```{r}
+vorTA(MMM_df$high, MMM_df$low) #volatility ratio
+```
+
+```{r}
+stochasticTA(MMM_df$adjClosing, MMM_df$high, MMM_df$low)
+
+```
+
+```{r}
+
+rsiTA(MMM_df$adjClosing) #relative strength index
+```
+
+```{r}
+SMA(MMM_df$adjClosing) #simple moving average
 ```
 
 ```{r, table_setup, message=FALSE, echo=TRUE, warning=FALSE}
@@ -65,4 +121,3 @@ for (curr_tick in sp500_tickers) {
   dbSendQuery(ds4100_project_db, ticker_query)
 }
 ```
-
