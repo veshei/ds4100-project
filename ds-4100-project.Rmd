@@ -1,20 +1,22 @@
 ---
 title: "ds-4100-project.Rmd"
-author: "Veronica Shei"
+author: "Veronica Shei, Edward Wang, Ethan Tang"
 date: "3/23/2019"
 output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(Quandl)
-library(rvest)
-library(RCurl)
-library(httr)
-library(jsonlite)
-library(tidyverse)
 library(alphavantager)
+library(rvest)
+library(tidyverse)
 av_api_key("KEI93A3FCAX5K5R9")
+```
+
+#retrieve S&P 500 company tickers
+```{r}
+sp500_page <- read_html("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies")
+sp500_names <- sp500_page %>% html_nodes("#constituents td:nth-child(2)") %>% html_text()
 ```
 
 ```{r}
@@ -30,3 +32,18 @@ av_get(av_fun = "SECTOR")
 av_get(symbol = "MSFT", av_fun = "AD", interval = "monthly", time_period = 60)
 ```
 
+
+```{r}
+library(rvest)
+library(tidyverse)
+
+sp500_page <- read_html("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies")
+sp500_names <- sp500_page %>% html_nodes("#constituents td:nth-child(2)") %>% html_text()
+```
+
+```{r}
+page <- read_html("https://finance.yahoo.com/quote/%5EGSPC/history?period1=1553227200&period2=1553313600&interval=1d&filter=history&frequency=1d")
+
+root <- html_node(page, 'body')
+table <- root %>% html_nodes('tbody tr')
+```
