@@ -1,0 +1,60 @@
+---
+title: "ds-4100-project.Rmd"
+author: "Veronica Shei, Edward Wang, Ethan Tang"
+date: "3/23/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(alphavantager)
+library(rvest)
+library(tidyverse)
+av_api_key("KEI93A3FCAX5K5R9")
+```
+
+#retrieve S&P 500 company tickers
+```{r}
+sp500_page <- read_html("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies")
+sp500_names <- sp500_page %>% html_nodes("#constituents td:nth-child(2)") %>% html_text()
+```
+
+```{r}
+# Alpha Vantage API key: KEI93A3FCAX5K5R9
+av_get(symbol = "^GSPC", av_fun = "TIME_SERIES_DAILY_ADJUSTED", interval = "60min", outputsize = "full")
+```
+
+```{r}
+av_get(av_fun = "SECTOR")
+```
+
+```{r}
+#av_get(symbol = "MSFT", av_fun = "AD", interval = "monthly", time_period = 60)
+
+data_get <- function(ticker) {
+  av_get(symbol = ticker, av_fun = "AD", interval = "monthly", time_period = 60)
+}
+```
+
+```{r}
+stocks_test = c("MSFT","TSLA","FB","AAPL")
+for (n in stocks_test) {
+  print(data_get(n))
+}
+```
+
+
+```{r}
+library(rvest)
+library(tidyverse)
+
+sp500_page <- read_html("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies")
+sp500_names <- sp500_page %>% html_nodes("#constituents td:nth-child(2)") %>% html_text()
+```
+
+```{r}
+page <- read_html("https://finance.yahoo.com/quote/%5EGSPC/history?period1=1553227200&period2=1553313600&interval=1d&filter=history&frequency=1d")
+
+root <- html_node(page, 'body')
+table <- root %>% html_nodes('tbody tr')
+```
