@@ -10,14 +10,17 @@ knitr::opts_chunk$set(echo = TRUE)
 library(alphavantager)
 library(rvest)
 library(tidyverse)
+library(RSQLite)
 av_api_key("KEI93A3FCAX5K5R9")
+ds4100_project_db <- dbConnect(SQLite(), dbname = "ds4100_project_db.sqlite")
 ```
 
 #retrieve S&P 500 company tickers
 ```{r}
 sp500_page <- read_html("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies")
-sp500_names <- sp500_page %>% html_nodes("#constituents td:nth-child(2)") %>% html_text()
-sp500_names
+
+sp500_tickers <- sp500_page %>% html_nodes("#constituents td:nth-child(2)") %>% html_text()
+sp500_tickers
 ```
 
 ```{r}
@@ -43,3 +46,23 @@ for (n in stocks_test) {
   print(data_get(n))
 }
 ```
+
+```{r, table_setup, message=FALSE, echo=TRUE, warning=FALSE}
+#Code to setup all the tables we plan to use in SQLite
+for (curr_tick in sp500_tickers) {
+  ticker_query <- paste(
+    "CREATE TABLE IF NOT EXISTS [", curr_tick,
+    "] (Ticker TEXT PRIMARY KEY,
+    Date TEXT
+    Adjusted_Close INTEGER,
+    Volume INTEGER,
+    SMA INTEGER,
+    EMA INTEGER,
+    MACD INTEGER,
+    STOCH INTEGER,
+    RSI INTEGER,
+    VWAP INTEGER)", sep="")
+  dbSendQuery(ds4100_project_db, ticker_query)
+}
+```
+
