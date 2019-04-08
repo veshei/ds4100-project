@@ -11,7 +11,9 @@ library(rvest)
 library(tidyverse)
 library(RSQLite)
 library(fTrading)
+library(ggplot2)
 db <- dbConnect(SQLite(), dbname = "ds4100_project_db.sqlite")
+
 ```
 
 #retrieve S&P 500 company tickers
@@ -35,9 +37,13 @@ get_stock_data <- function(ticker) {
   body <- root %>% html_nodes('tbody tr')
 
   #returns the dates, removing dates that correspond to dividends
+  
+  format_month <- c("Jan"="01","Feb"="02","Mar"="03","Apr"="04","May"="05","Jun"="06","Jul"="07","Aug"="08","Sep"="09","Oct"="10","Nov"="11","Dec"="12")
+  
+  
   dates <- body %>% html_nodes('td:nth-child(1)') %>% html_text()
   dates <- dates[which(!(dates %in% div_dates))]
-  dates <- dates[which(!(dates %in% split_dates))]
+  dates <- dates[which(!(dates %in% split_dates))] %>% str_replace_all(format_month) %>% str_replace("\\s01,\\s","/01/") %>% str_remove_all("\\s") %>% str_remove("20") %>% as.Date("%m/%d/%y")
   
   highs <- body %>% html_nodes('td:nth-child(3)') %>% html_text() %>% str_replace_all(",","") %>% as.numeric()
   lows <- body %>% html_nodes('td:nth-child(4)') %>% html_text() %>% str_replace_all(",","") %>% as.numeric()
@@ -69,6 +75,7 @@ get_split_dates <- function(ticker) {
 ```
 
 ```{r}
+# need to normalize before
 get_EWMA <- function(ticker_df) {
   EWMA(ticker_df$Adjusted_Close, lambda = .1) #exponentially weighted moving average
 }
@@ -113,7 +120,7 @@ get_SMA <- function(ticker_df) {
 
 
 ```{r}
-sp500_tickers <- sp500_tickers[1:10]
+sp500_tickers <- sp500_tickers[1:1]
 for(ticker in sp500_tickers) {
   df <- get_stock_data(ticker)
   df <- cbind(df,
@@ -129,6 +136,15 @@ for(ticker in sp500_tickers) {
   
   assign(paste(ticker,"_df", sep = ""),df)
 }
+```
+
+```{r}
+ggplot(data = MMM_df, mapping = aes(x = Date, y = EWMA)) + 
+  geom_point() +
+  geom_smooth(method = "glm") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ggplot(data = MMM_df, mapping = aes(x = Date, y = SMA)) + 
+  geom_point() +
+  geom_smooth(method = "glm") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
 
