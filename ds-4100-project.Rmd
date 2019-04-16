@@ -13,7 +13,6 @@ library(RSQLite)
 library(fTrading)
 library(ggplot2)
 db <- dbConnect(SQLite(), dbname = "ds4100_project_db.sqlite")
-
 ```
 
 #retrieve S&P 500 company tickers
@@ -22,7 +21,6 @@ sp500_page <- read_html("https://en.wikipedia.org/wiki/List_of_S%26P_500_compani
 sp500_tickers <- sp500_page %>% html_nodes("#constituents td:nth-child(2)") %>% html_text()
 sp500_tickers
 ```
-
 
 #get tibble of dates, adj closing price, and volume for given ticker.
 ```{r}
@@ -75,6 +73,13 @@ get_split_dates <- function(ticker) {
 }
 ```
 
+```{r}
+get_SMA <- function(ticker_df) {
+  pad <- c(0,0,0,0)
+  sma <- SMA(ticker_df$Adjusted_Close) #simple moving average
+  c(pad, sma)
+}
+```
 
 ```{r}
 # need to normalize before
@@ -105,7 +110,6 @@ VOR <- function(ticker_df) {
 STOCH <- function(ticker_df) {
   stochasticTA(ticker_df$Adjusted_Close, ticker_df$High, ticker_df$Low)
 }
-
 ```
 
 ```{r}
@@ -115,28 +119,38 @@ RSI <- function(ticker_df){
 ```
 
 ```{r}
-get_SMA <- function(ticker_df) {
-  pad <- c(0,0,0,0)
-  sma <- SMA(ticker_df$Adjusted_Close) #simple moving average
-  c(pad, sma)
-}
-```
-
-```{r}
 sp500_tickers <- sp500_tickers[1:1]
+
 for(ticker in sp500_tickers) {
   df <- get_stock_data(ticker)
   df <- cbind(df,
               SMA = get_SMA(df),
-              RSI = RSI(df),
-              VOR = VOR(df),
-              MACD = MACD(df),
-              MOM = MOM(df),
               EWMA = get_EWMA(df),
-              STOCH = STOCH(df)
+              MOM = MOM(df),
+              MACD = MACD(df),
+              STOCH = STOCH(df),
+              RSI = RSI(df),
+              VOR = VOR(df)
               )
   assign(paste(ticker,"_df", sep = ""),df)
 }
+MMM_df
+```
+
+```{r}
+MMM_df = data_frame(
+  Adjusted_Close = MMM_df$adjClosing,
+  Volume = MMM_df$volume,
+  SMA = mmm_sma,
+  EMA = mmm_ewma,
+  MOM = mmm_mom,
+  MACD = mmm_macd,
+  STOCHK = mmm_stochk,
+  STOCHD = mmm_stochd,
+  RSI = mmm_rsi,
+  VOR = mmm_vor
+)
+MMM_df
 ```
 
 ```{r, table_setup, message=FALSE, echo=TRUE, warning=FALSE}
@@ -149,18 +163,20 @@ for (curr_tick in sp500_tickers) {
     Date TEXT
     Adjusted_Close INTEGER,
     Volume INTEGER,
+    High INTEGER,
+    Low INTEGER,
     PERCENT_VOL INTEGER,
     PERCENT_PRICE INTEGER,
     NORM_SMA INTEGER,
     NORM_EMA INTEGER,
     SMA INTEGER,
-    EMA INTEGER,
+    EWMA INTEGER,
     MOM INTEGER,
     MACD INTEGER,
     STOCHK INTEGER,
     STOCHD INTEGER,
     RSI INTEGER,
-    VOL_RATIO INTEGER)", sep="")
+    VOR INTEGER)", sep="")
   dbSendQuery(ds4100_project_db, ticker_query)
 }
 ```
