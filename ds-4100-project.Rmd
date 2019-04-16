@@ -11,7 +11,9 @@ library(rvest)
 library(tidyverse)
 library(RSQLite)
 library(fTrading)
-ds4100_project_db <- dbConnect(SQLite(), dbname = "ds4100_project_db.sqlite")
+library(ggplot2)
+db <- dbConnect(SQLite(), dbname = "ds4100_project_db.sqlite")
+
 ```
 
 #retrieve S&P 500 company tickers
@@ -36,20 +38,25 @@ get_stock_data <- function(ticker) {
   body <- root %>% html_nodes('tbody tr')
 
   #returns the dates, removing dates that correspond to dividends
+  
+  format_month <- c("Jan"="01","Feb"="02","Mar"="03","Apr"="04","May"="05","Jun"="06","Jul"="07","Aug"="08","Sep"="09","Oct"="10","Nov"="11","Dec"="12")
+  
+  
   dates <- body %>% html_nodes('td:nth-child(1)') %>% html_text()
-  dates <- dates[which((!dates %in% div_dates) && (!dates %in% split_dates))]
+  dates <- dates[which(!(dates %in% div_dates))]
+  dates <- dates[which(!(dates %in% split_dates))] %>% str_replace_all(format_month) %>% str_replace("\\s01,\\s","/01/") %>% str_remove_all("\\s") %>% str_remove("20") %>% as.Date("%m/%d/%y")
   
   highs <- body %>% html_nodes('td:nth-child(3)') %>% html_text() %>% str_replace_all(",","") %>% as.numeric()
   lows <- body %>% html_nodes('td:nth-child(4)') %>% html_text() %>% str_replace_all(",","") %>% as.numeric()
-  adjClosings <- body %>% html_nodes('td:nth-child(6)') %>% html_text() %>% str_replace_all(",","") %>% as.numeric()
+  Adjusted_Closes <- body %>% html_nodes('td:nth-child(6)') %>% html_text() %>% str_replace_all(",","") %>% as.numeric()
   volumes <- body %>% html_nodes('td:nth-child(7)') %>% html_text() %>% str_replace_all(",","") %>% as.numeric()
 
   tibble(
-    date = dates,
-    adjClosing = adjClosings,
-    volume = volumes,
-    high = highs,
-    low = lows
+    Date = dates,
+    Adjusted_Close = Adjusted_Closes,
+    Volume = volumes,
+    High = highs,
+    Low = lows
   )
 }
 
@@ -69,43 +76,67 @@ get_split_dates <- function(ticker) {
 ```
 
 
-```{r, sp500}
-sp500_tickers <- sp500_tickers[1:5]
-for(ticker in sp500_tickers) {
-  assign(paste(ticker,"_df", sep = ""),get_stock_data(ticker))
+```{r}
+# need to normalize before
+get_EWMA <- function(ticker_df) {
+  EWMA(ticker_df$Adjusted_Close, lambda = .1) #exponentially weighted moving average
 }
 ```
 
-```{r, percent_volume}
+```{r}
+MOM <- function(ticker_df) {
+  momTA(ticker_df$Adjusted_Close) #momentum 
+}
+```
+
+```{r}
+MACD <- function(ticker_df) {
+  macdTA(ticker_df$Adjusted_Close) #moving average conversion to divergents
+}
+```
+
+```{r}
+VOR <- function(ticker_df) {
+  vorTA(ticker_df$High, ticker_df$Low) #volatility ratio
+}
+```
+
+```{r}
+STOCH <- function(ticker_df) {
+  stochasticTA(ticker_df$Adjusted_Close, ticker_df$High, ticker_df$Low)
+}
 
 ```
 
 ```{r}
-EWMA(MMM_df$adjClosing, lambda = .1) #exponentially weighted moving average (EMA)
+RSI <- function(ticker_df){
+  rsiTA(ticker_df$Adjusted_Close) #relative strength index
+}
 ```
 
 ```{r}
-SMA(MMM_df$adjClosing) #simple moving average
+get_SMA <- function(ticker_df) {
+  pad <- c(0,0,0,0)
+  sma <- SMA(ticker_df$Adjusted_Close) #simple moving average
+  c(pad, sma)
+}
 ```
 
 ```{r}
-momTA(MMM_df$adjClosing) #momentum 
-```
-
-```{r}
-macdTA(MMM_df$adjClosing) #moving average conversion to divergents
-```
-
-```{r}
-stochasticTA(MMM_df$adjClosing, MMM_df$high, MMM_df$low)
-```
-
-```{r}
-rsiTA(MMM_df$adjClosing) #relative strength index
-```
-
-```{r}
-vorTA(MMM_df$high, MMM_df$low) #volatility ratio
+sp500_tickers <- sp500_tickers[1:1]
+for(ticker in sp500_tickers) {
+  df <- get_stock_data(ticker)
+  df <- cbind(df,
+              SMA = get_SMA(df),
+              RSI = RSI(df),
+              VOR = VOR(df),
+              MACD = MACD(df),
+              MOM = MOM(df),
+              EWMA = get_EWMA(df),
+              STOCH = STOCH(df)
+              )
+  assign(paste(ticker,"_df", sep = ""),df)
+}
 ```
 
 ```{r, table_setup, message=FALSE, echo=TRUE, warning=FALSE}
@@ -135,6 +166,10 @@ for (curr_tick in sp500_tickers) {
 ```
 
 ```{r}
-dbListTables(ds4100_project_db)
+ggplot(data = MMM_df, mapping = aes(x = Date, y = EWMA)) + 
+  geom_point() +
+  geom_smooth(method = "glm") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ggplot(data = MMM_df, mapping = aes(x = Date, y = SMA)) + 
+  geom_point() +
+  geom_smooth(method = "glm") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
-
