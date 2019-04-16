@@ -45,7 +45,11 @@ for (n in stocks_test) {
   try(print(data_get(n)))
 }
 ```
+<<<<<<< HEAD
 
+=======
+<<<<<<< HEAD
+>>>>>>> bf7c897d01284d6160cad6b7c2bd97c9f705d4fa
 ```{r}
 # Alpha Vantage API key: KEI93A3FCAX5K5R9
 sp500_idx <- av_get(symbol = "^GSPC", av_fun = "TIME_SERIES_DAILY_ADJUSTED", interval = "60min", outputsize = "full")
@@ -105,3 +109,9 @@ print(accuracy)
 ```{r}
 count(results %>% filter(predicted==test_df.response))
 ```
+<<<<<<< HEAD
+=======
+
+=======
+>>>>>>> 6140dcc48a9632e88e797ff1c1655c6b7555c64d
+>>>>>>> bf7c897d01284d6160cad6b7c2bd97c9f705d4fa
