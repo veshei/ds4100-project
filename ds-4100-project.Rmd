@@ -37,7 +37,8 @@ get_stock_data <- function(ticker) {
 
   #returns the dates, removing dates that correspond to dividends
   dates <- body %>% html_nodes('td:nth-child(1)') %>% html_text()
-  dates <- dates[which((!dates %in% div_dates) && (!dates %in% split_dates))]
+  dates <- dates[which((!dates %in% div_dates))]
+  dates <- dates[which(!dates %in% split_dates)]
   
   highs <- body %>% html_nodes('td:nth-child(3)') %>% html_text() %>% str_replace_all(",","") %>% as.numeric()
   lows <- body %>% html_nodes('td:nth-child(4)') %>% html_text() %>% str_replace_all(",","") %>% as.numeric()
@@ -70,7 +71,7 @@ get_split_dates <- function(ticker) {
 
 
 ```{r, sp500}
-sp500_tickers <- sp500_tickers[1:5]
+sp500_tickers <- sp500_tickers[1:1]
 for(ticker in sp500_tickers) {
   assign(paste(ticker,"_df", sep = ""),get_stock_data(ticker))
 }
