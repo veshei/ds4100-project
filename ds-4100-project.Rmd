@@ -69,11 +69,25 @@ get_split_dates <- function(ticker) {
 }
 ```
 
+```{r}
+skipped_tickers <- c()
+```
 
 ```{r, sp500}
 sp500_tickers <- sp500_tickers[1:1]
 for(ticker in sp500_tickers) {
-  assign(paste(ticker,"_df", sep = ""),get_stock_data(ticker))
+  print(ticker)
+  tryCatch({
+     assign(paste(ticker,"_df", sep = ""),get_stock_data(ticker))
+    
+    }, warning = function(w) {
+    print(w)
+}, error = function(e) {
+  print("ticker error")
+  skipped_tickers <- skipped_tickers + c(ticker)
+})
+  
+  Sys.sleep(10)
 }
 ```
 
