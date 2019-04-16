@@ -20,6 +20,7 @@ db <- dbConnect(SQLite(), dbname = "ds4100_project_db.sqlite")
 ```{r}
 sp500_page <- read_html("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies")
 sp500_tickers <- sp500_page %>% html_nodes("#constituents td:nth-child(2)") %>% html_text()
+sp500_tickers
 ```
 
 
@@ -74,17 +75,20 @@ get_split_dates <- function(ticker) {
 }
 ```
 
+
 ```{r}
 # need to normalize before
 get_EWMA <- function(ticker_df) {
   EWMA(ticker_df$Adjusted_Close, lambda = .1) #exponentially weighted moving average
 }
 ```
+
 ```{r}
 MOM <- function(ticker_df) {
   momTA(ticker_df$Adjusted_Close) #momentum 
 }
 ```
+
 ```{r}
 MACD <- function(ticker_df) {
   macdTA(ticker_df$Adjusted_Close) #moving average conversion to divergents
@@ -118,7 +122,6 @@ get_SMA <- function(ticker_df) {
 }
 ```
 
-
 ```{r}
 sp500_tickers <- sp500_tickers[1:1]
 for(ticker in sp500_tickers) {
@@ -132,9 +135,33 @@ for(ticker in sp500_tickers) {
               EWMA = get_EWMA(df),
               STOCH = STOCH(df)
               )
-  
-  
   assign(paste(ticker,"_df", sep = ""),df)
+}
+```
+
+```{r, table_setup, message=FALSE, echo=TRUE, warning=FALSE}
+#Code to setup all the tables we plan to use in SQLite
+
+for (curr_tick in sp500_tickers) {
+  ticker_query <- paste(
+    "CREATE TABLE IF NOT EXISTS [", curr_tick,
+    "] (Ticker TEXT PRIMARY KEY,
+    Date TEXT
+    Adjusted_Close INTEGER,
+    Volume INTEGER,
+    PERCENT_VOL INTEGER,
+    PERCENT_PRICE INTEGER,
+    NORM_SMA INTEGER,
+    NORM_EMA INTEGER,
+    SMA INTEGER,
+    EMA INTEGER,
+    MOM INTEGER,
+    MACD INTEGER,
+    STOCHK INTEGER,
+    STOCHD INTEGER,
+    RSI INTEGER,
+    VOL_RATIO INTEGER)", sep="")
+  dbSendQuery(ds4100_project_db, ticker_query)
 }
 ```
 
@@ -146,30 +173,3 @@ ggplot(data = MMM_df, mapping = aes(x = Date, y = SMA)) +
   geom_point() +
   geom_smooth(method = "glm") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
-
-
-# ```{r, table_setup, message=FALSE, echo=TRUE, warning=FALSE}
-# #Code to setup all the tables we plan to use in SQLite
-# for (curr_tick in sp500_tickers) {
-#   ticker_query <- paste(
-#     "CREATE TABLE IF NOT EXISTS [", curr_tick,
-#     "] (Ticker TEXT PRIMARY KEY,
-#     Date TEXT
-#     Adjusted_Close INTEGER,
-#     High INTEGER,
-#     Low INTEGER,
-#     Volume INTEGER,
-#     get_SMA INTEGER,
-#     get_EWMA INTEGER,
-#     MACD INTEGER,
-#     STOCH INTEGER,
-#     MOM INTEGER,
-#     RSI INTEGER,
-#     VOR INTEGER)", sep="")
-#   dbSendQuery(db, ticker_query)
-# 
-#   value_name <- get(paste0(curr_tick, "_df"))
-# 
-#   dbWriteTable(conn=db, name=curr_tick, value=value_name, row.names = FALSE, append = TRUE)
-# }
-# ```
