@@ -13,6 +13,8 @@ library(tidyverse)
 library(tryCatchLog)
 library(ggplot2)
 av_api_key("1MS48Q9F2SIQSHK7")
+library(quantmod)
+library(fTrading)
 ```
 
 #retrieve S&P 500 company tickers
@@ -83,3 +85,17 @@ test_size = dim(sp500_anal)[1] - training_size
 accuracy = (count(results %>% filter(predicted==test_df.response))) / test_size
 print(accuracy)
 ```
+
+```{r}
+#sp500_idx = cbind(sp500_idx,ewma=EWMA(sp500_idx$adjusted_close, 1, startup = 0))
+sp500_idx$ewma = EWMA(sp500_idx$adjusted_close, .1, startup = 0)
+sp500_idx
+```
+
+```{r}
+yr1_range = nrow(sp500_idx) - 365
+full_range = nrow(sp500_idx)
+sp500_short = sp500_idx[yr1_range:full_range,]
+ggplot(sp500_short,aes(x=timestamp)) + geom_line(aes(y=ewma),color="Red") + geom_line(aes(y=adjusted_close))
+```
+
