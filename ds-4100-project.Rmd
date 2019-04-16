@@ -21,7 +21,6 @@ sp500_tickers <- sp500_page %>% html_nodes("#constituents td:nth-child(2)") %>% 
 sp500_tickers
 ```
 
-
 #get tibble of dates, adj closing price, and volume for given ticker.
 ```{r}
 get_stock_data <- function(ticker) {
@@ -77,35 +76,62 @@ for(ticker in sp500_tickers) {
 ```
 
 ```{r, percent_volume}
-
+MMM_df
 ```
 
 ```{r}
-EWMA(MMM_df$adjClosing, lambda = .1) #exponentially weighted moving average (EMA)
+mmm_ewma = EWMA(MMM_df$adjClosing, lambda = .1) #exponentially weighted moving average (EMA)
+mmm_ewma
 ```
 
 ```{r}
-SMA(MMM_df$adjClosing) #simple moving average
+mmm_sma = SMA(MMM_df$adjClosing) #simple moving average
+mmm_sma = c(c(0,0,0,0), mmm_sma)
+mmm_sma
 ```
 
 ```{r}
-momTA(MMM_df$adjClosing) #momentum 
+mmm_mom = momTA(MMM_df$adjClosing) #momentum 
+mmm_mom
 ```
 
 ```{r}
-macdTA(MMM_df$adjClosing) #moving average conversion to divergents
+mmm_macd = macdTA(MMM_df$adjClosing) #moving average conversion to divergents
+mmm_macd
 ```
 
 ```{r}
-stochasticTA(MMM_df$adjClosing, MMM_df$high, MMM_df$low)
+mmm_stoch = stochasticTA(MMM_df$adjClosing, MMM_df$high, MMM_df$low)
+mmm_stochk = mmm_stoch[,1]
+mmm_stochk
+mmm_stochd = mmm_stoch[,2]
+mmm_stochd
 ```
 
 ```{r}
-rsiTA(MMM_df$adjClosing) #relative strength index
+mmm_rsi = rsiTA(MMM_df$adjClosing) #relative strength index
+mmm_rsi
 ```
 
 ```{r}
-vorTA(MMM_df$high, MMM_df$low) #volatility ratio
+mmm_vor = vorTA(MMM_df$high, MMM_df$low) #volatility ratio
+mmm_vor
+```
+
+```{r}
+MMM_df = data_frame(
+  Adjusted_Close = MMM_df$adjClosing,
+  Volume = MMM_df$volume,
+  SMA = mmm_sma,
+  EMA = mmm_ewma,
+  MOM = mmm_mom,
+  MACD = mmm_macd,
+  STOCHK = mmm_stochk,
+  STOCHD = mmm_stochd,
+  RSI = mmm_rsi,
+  VOR = mmm_vor
+)
+MMM_df
 ```
 
 ```{r, table_setup, message=FALSE, echo=TRUE, warning=FALSE}
@@ -129,7 +155,7 @@ for (curr_tick in sp500_tickers) {
     STOCHK INTEGER,
     STOCHD INTEGER,
     RSI INTEGER,
-    VOL_RATIO INTEGER)", sep="")
+    VOR INTEGER)", sep="")
   dbSendQuery(ds4100_project_db, ticker_query)
 }
 ```
