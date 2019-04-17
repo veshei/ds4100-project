@@ -1,0 +1,118 @@
+---
+title: "ds-4100-project-modeling.Rmd"
+author: "Veronica Shei, Edward Wang, Ethan Tang"
+date: "3/23/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rvest)
+library(tidyverse)
+library(RSQLite)
+library(fTrading)
+library(ggplot2)
+library(quantmod)
+library(corrplot)
+library(caret)
+db <- dbConnect(SQLite(), dbname = "ds4100_project_db.sqlite")
+```
+
+```{r}
+# database contains 619622 observations
+master_dataset = c()
+for (ticker in dbListTables(db)) {
+  curr_data = dbReadTable(db,ticker)
+  master_dataset = rbind(master_dataset, curr_data[,8:length(curr_data)])
+}
+num_og_obs = dim(master_dataset)[1]
+print(num_og_obs)
+```
+
+```{r}
+# Removed 118329 NAs
+num_curr_obs = dim(master_dataset)[1]
+master_dataset = na.omit(master_dataset)
+print(num_og_obs - dim(master_dataset)[1])
+```
+
+```{r}
+num_curr_obs = dim(master_dataset)[1]
+num_curr_obs
+master_dataset = master_dataset[master_dataset$PERCENT_VOL != 0,]
+print(dim(master_dataset)[1])
+master_dataset = master_dataset[master_dataset$SMA != 0,]
+print(dim(master_dataset)[1])
+master_dataset = master_dataset[master_dataset$MOM != 0,]
+print(dim(master_dataset)[1])
+master_dataset = master_dataset[master_dataset$RSI != 0,]
+print(dim(master_dataset)[1])
+master_dataset = master_dataset[master_dataset$RSI != 1,]
+print(dim(master_dataset)[1])
+```
+
+```{r}
+# determining a training size based on 70% of the dataset
+training_perc = .70
+training_size = round(dim(master_dataset)[[1]] * training_perc,0)
+
+# creating a random index with the determined training size for selecting the training/testing set
+training_idx = sample(nrow(master_dataset),size=training_size,replace=FALSE)
+train_df = master_dataset[training_idx,]
+test_df = master_dataset[-training_idx,]
+```
+
+```{r}
+# Looking for correlations for numeric factors
+# correlations <-  cor(master_dataset %>% select(PERCENT_))
+# corrplot(correlations,"circle")
+# 
+# correlations <-  cor(master_dataset %>% select(-PERCENT_VOL))
+# corrplot(correlations,"circle")
+# 
+# correlations <-  cor(master_dataset %>% select(-PERCENT_VOL))
+# corrplot(correlations,"circle")
+# 
+# correlations <-  cor(master_dataset %>% select(-PERCENT_VOL))
+# corrplot(correlations,"circle")
+
+correlations <-  cor(master_dataset)
+corrplot(correlations,"circle")
+```
+
+```{r}
+round(master_dataset$PERCENT_VOL)
+```
+
+```{r}
+# Linear Model
+pred_lm_short <- step(lm(PERCENT_CHANGE_20 ~ PERCENT_PRICE + MOM + MACD + STOCH.K + STOCH.D + RSI + VOR, train_df), direction = "both")
+
+print(summary(pred_lm_short))
+```
+
+```{r}
+# Logistic Model
+pred_glm_short <- step(glm(FUTURE_CLASS_20 ~ PERCENT_PRICE + MOM + MACD + STOCH.K + STOCH.D + RSI + VOR, train_df, family=binomial), direction = "both")
+
+print(summary(pred_glm_short))
+```
+
+```{r}
+# testing model against test dataset
+# rounding applies a threshold of 50% probability for survival
+predicted <- round(predict(pred_glm_short, test_df, type="response"),0)
+
+# place predictions and actual class into a dataframe
+results <- data.frame(predicted, actual=test_df$FUTURE_CLASS_20)
+head(results)
+
+# Output the accuracy of the model
+# test_size = dim(master_dataset)[1] - training_size
+# accuracy = (count(results %>% filter(predicted==actual))) / test_size
+# #print(accuracy)
+# results
+
+confusionMatrix(factor(predicted), factor(test_df$FUTURE_CLASS_20))
+```
+
