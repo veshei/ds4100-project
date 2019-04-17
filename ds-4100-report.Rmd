@@ -61,10 +61,33 @@ Project Issues and Resolution
 
 Input and Output from R Code
 -----
+An example of a stock table we generated. 
+```{r, example_data, message=FALSE, echo=TRUE, warning=FALSE}
+head(dbReadTable(conn = db, "AAPL"))
+```
+
+An example of what an analyst may look at when viewing a stock. Comparing 50 day to 200 day chart series. 
+```{r, stock_charts, message=FALSE, echo=TRUE, warning=FALSE}
+#Stock graph for AAPL
+#Indicators shown are Momentum, WMA, SMA, MACD, and EVWMA
+#Display 200 day view starting from October 16th
+getSymbols("AAPL", from='2018-10-16', to='2019-04-16')
+chartSeries(AAPL, TA = "addMomentum();addWMA();addSMA();addMACD();addEVWMA()", theme="white",major.ticks='months',subset='first 28 weeks')
+#Displays 50 day view starting from Dec 17th
+getSymbols("AAPL", from='2018-12-16', to='2019-04-16')
+chartSeries(AAPL, TA = "addMomentum();addWMA();addSMA();addMACD();addEVWMA()", theme="white",major.ticks='months',subset='first 50 days')
+```
 
 Insights and Potential Future work
 -----
   Potential future work we foresee for this project is to increase the number of stocks or the number of years we feed into our predictive algorithms. We hope that with more data, we’d be able to increase the accuracy of our data. We could also expand the number of technical indicators used to see if that would improve the accuracy of our predictions. Another approach we could explore is to use different baseline data such as social media, fundamentals, or the economy to see if those are better predictors of the US stock market. We could also test out more predictive algorithms to determine the most accurate algorithm.  
 
+Works Cited
+-----
+Chalabi, Yohan. "FTrading v3010.78." FTrading Package | R Documentation,   www.rdocumentation.org/packages/fTrading/versions/3010.78.
+
+Miller, Curtis. “An Introduction to Stock Market Data Analysis with R (Part 1).” Curtis Miller's Personal Website, 28 Mar. 2017, ntguardian.wordpress.com/2017/03/27/introduction-stock-market-data-r-1/.
+
+Wikipedia. "List of S&P 500 Companies." Wikipedia, Wikimedia Foundation, 13 Apr. 2019, en.wikipedia.org/wiki/List_of_S%26P_500_companies.
 
 
