@@ -6,6 +6,7 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
+# Import necessary libraries
 knitr::opts_chunk$set(echo = TRUE)
 library(rvest)
 library(tidyverse)
@@ -16,33 +17,47 @@ library(quantmod)
 library(corrplot)
 library(caret)
 library(class)
+# Connect to the database
 db <- dbConnect(SQLite(), dbname = "ds4100_project_db.sqlite")
 ```
 
 ```{r}
-# database contains 619622 observations
+# initialize empty vector for holding all observations
 master_dataset = c()
+# database contains 619622 observations
+# iterate over all the stocks and pull in the features and responses
 for (ticker in dbListTables(db)) {
   curr_data = dbReadTable(db,ticker)
   master_dataset = rbind(master_dataset, curr_data[,8:length(curr_data)])
 }
+# out put the number of observations
 num_og_obs = dim(master_dataset)[1]
 print(num_og_obs)
 ```
 
 ```{r}
-# Removed 118329 NAs
-num_curr_obs = dim(master_dataset)[1]
-print(num_curr_obs)
-print(num_og_obs - dim(master_dataset)[1])
+# current number of observations
+dim(master_dataset)[1]
+
+# Remove all rows with an NA
+# This can result due to division by zero or transformations resulting from indicator calculations, 
 master_dataset = na.omit(master_dataset)
-print(num_og_obs - dim(master_dataset)[1])
+# current number of observations
+dim(master_dataset)[1]
+
+# Remove all volume change deltas equal to zero as this is faulty data
 master_dataset = master_dataset[master_dataset$PERCENT_VOL != 0,]
+# current number of observations
+dim(master_dataset)[1]
+
+# Only keep perent volume under 1000% to remove outliers
 master_dataset = master_dataset[master_dataset$PERCENT_VOL < 1000,]
-print(dim(master_dataset)[1])
+dim(master_dataset)[1]
 ```
 
 ```{r}
+# Normalisation function for SMA, EWMA, Percent Price, Percent Vol
+# Takes the takes value subtracts minimum, and divides by the range
 normalize <- function(ticker_df, type) {
   if(type == 'SMA') {
     sma <- ticker_df$SMA
@@ -61,6 +76,7 @@ normalize <- function(ticker_df, type) {
 ```
 
 ```{r}
+# Normalize the percent price, percent vol, sma, and ewma
 master_dataset = cbind(master_dataset,
                        NORM_PERC_PRICE = normalize(master_dataset, "PERCENT_PRICE"),
                        NORM_PERC_VOL = normalize(master_dataset, "PERCENT_VOL"),
@@ -70,16 +86,28 @@ master_dataset = cbind(master_dataset,
 ```
 
 ```{r}
-num_curr_obs = dim(master_dataset)[1]
-num_curr_obs
+# current number of observation
+dim(master_dataset)[1]
+
+# removes the 0 padding used in calculating the initial sma values
 master_dataset = master_dataset[master_dataset$SMA != 0,]
-print(dim(master_dataset)[1])
+# current number of observation
+dim(master_dataset)[1]
+
+# removes the 0 padding used in calculating the initial momentum values
 master_dataset = master_dataset[master_dataset$MOM != 0,]
-print(dim(master_dataset)[1])
+# current number of observation
+dim(master_dataset)[1]
+
+# removes the 0 padding used in calculating the initial rsi values
 master_dataset = master_dataset[master_dataset$RSI != 0,]
-print(dim(master_dataset)[1])
+# current number of observation
+dim(master_dataset)[1]
+
+# removes the 0 padding used in calculating the initial rsi values
 master_dataset = master_dataset[master_dataset$RSI != 1,]
-print(dim(master_dataset)[1])
+# current number of observation
+dim(master_dataset)[1]
 ```
 
 ```{r}
@@ -94,55 +122,58 @@ test_df = master_dataset[-training_idx,]
 ```
 
 ```{r}
-# Looking for correlations for numeric factors
+# Selecting only relevant features and response variables
 master_dataset <- master_dataset %>%
   select(NORM_PERC_PRICE, NORM_PERC_VOL, NORM_SMA, NORM_EWMA, MOM, MACD, STOCH.K, STOCH.D, RSI, VOR,
          PERCENT_CHANGE_20, PERCENT_CHANGE_60, PERCENT_CHANGE_240,
          FUTURE_CLASS_20, FUTURE_CLASS_60, FUTURE_CLASS_240)
+```
+
+
+```{r}
+# Looking for correlations
 correlations <-  cor(master_dataset)
 corrplot(correlations,"circle")
-# correlations <-  cor(master_dataset %>%
-#   select(NORM_PERC_PRICE, NORM_PERC_VOL, NORM_SMA, NORM_EWMA, MOM, MACD, STOCH.K, STOCH.D, RSI, VOR,
-#          PERCENT_CHANGE_20))
-# corrplot(correlations,"circle")
-# 
-# correlations <-  cor(master_dataset %>%
-#   select(NORM_PERC_PRICE, NORM_PERC_VOL, NORM_SMA, NORM_EWMA, MOM, MACD, STOCH.K, STOCH.D, RSI, VOR,
-#          PERCENT_CHANGE_60))
-# corrplot(correlations,"circle")
-# 
-# correlations <-  cor(master_dataset %>%
-#   select(NORM_PERC_PRICE, NORM_PERC_VOL, NORM_SMA, NORM_EWMA, MOM, MACD, STOCH.K, STOCH.D, RSI, VOR,
-#          PERCENT_CHANGE_240))
-# corrplot(correlations,"circle")
-# 
-# correlations <-  cor(master_dataset %>%
-#   select(NORM_PERC_PRICE, NORM_PERC_VOL, NORM_SMA, NORM_EWMA, MOM, MACD, STOCH.K, STOCH.D, RSI, VOR,
-#          FUTURE_CLASS_20))
-# corrplot(correlations,"circle")
-# 
-# correlations <-  cor(master_dataset %>%
-#   select(NORM_PERC_PRICE, NORM_PERC_VOL, NORM_SMA, NORM_EWMA, MOM, MACD, STOCH.K, STOCH.D, RSI, VOR,
-#          FUTURE_CLASS_60))
-# corrplot(correlations,"circle")
-# 
-# correlations <-  cor(master_dataset %>%
-#   select(NORM_PERC_PRICE, NORM_PERC_VOL, NORM_SMA, NORM_EWMA, MOM, MACD, STOCH.K, STOCH.D, RSI, VOR,
-#          FUTURE_CLASS_240))
-# corrplot(correlations,"circle")
 ```
 
 ```{r}
 # Linear Model Short
 pred_lm_short <- step(lm(PERCENT_CHANGE_20 ~ NORM_PERC_PRICE + NORM_PERC_VOL + NORM_SMA + NORM_EWMA + MOM + MACD + STOCH.K + STOCH.D + RSI + VOR, train_df), direction = "both")
 
+# Model removed no variables
+# Model dominated by SMA, EWMA, MOM, RSI
 print(summary(pred_lm_short))
+```
+
+```{r}
+# testing model against test dataset
+# rounding applies a threshold of 50% probability for buy
+predicted <- predict(pred_lm_short, test_df, type="response")
+# place predictions and actual class into a dataframe
+results <- data.frame(predicted, actual=test_df$PERCENT_CHANGE_20)
+head(results)
+```
+
+```{r}
+# plotting the predicted against the actual
+ggplot(results) + geom_point(aes(x=predicted, y=actual))
 ```
 
 ```{r}
 # Linear Model Medium
 pred_lm_med <- step(lm(PERCENT_CHANGE_60 ~ NORM_PERC_PRICE + NORM_PERC_VOL + NORM_SMA + NORM_EWMA + MOM + MACD + STOCH.K + STOCH.D + RSI + VOR, train_df), direction = "both")
 
+# Model removed SMA, EWMA, MACD, and Percent Price
+# Model dominated by volatility ratio
+print(summary(pred_lm_med))
+```
+
+```{r}
+# Linear Model Medium removed vor
+pred_lm_med <- step(lm(PERCENT_CHANGE_60 ~ NORM_PERC_PRICE + NORM_PERC_VOL + NORM_SMA + NORM_EWMA + MOM + MACD + STOCH.K + STOCH.D + RSI, train_df), direction = "both")
+
+# Model removed Stochastics and percent volume
+# Model dominated by SMA, EWMA, but R^2 drops significantly
 print(summary(pred_lm_med))
 ```
 
@@ -150,6 +181,8 @@ print(summary(pred_lm_med))
 # Linear Model
 pred_lm_long <- step(lm(PERCENT_CHANGE_240 ~ NORM_PERC_PRICE + NORM_PERC_VOL + NORM_SMA + NORM_EWMA + MOM + MACD + STOCH.K + STOCH.D + RSI + VOR, train_df), direction = "both")
 
+# Model removed SMA, MACD, MOM, Stochastics
+# Model dominated by volatility ratio
 print(summary(pred_lm_long))
 ```
 
@@ -157,61 +190,79 @@ print(summary(pred_lm_long))
 # Logistic Model short
 pred_glm_short <- step(glm(FUTURE_CLASS_20 ~ NORM_PERC_PRICE + NORM_PERC_VOL + NORM_SMA + NORM_EWMA + MOM + MACD + STOCH.K + STOCH.D + RSI + VOR, train_df, family=binomial), direction = "both")
 
+# Model removed stochastics
+# Model dominated by momentum
 print(summary(pred_glm_short))
 ```
 
 ```{r}
 # testing model against test dataset
-# rounding applies a threshold of 50% probability for survival
+# rounding applies a threshold of 50% probability for buy
 predicted <- round(predict(pred_glm_short, test_df, type="response"),0)
 # place predictions and actual class into a dataframe
 results <- data.frame(predicted, actual=test_df$FUTURE_CLASS_20)
 head(results)
 # Confusion Matrix with stats
 confusionMatrix(factor(predicted), factor(test_df$FUTURE_CLASS_20))
+# Model almost always predicts true
+# Accuracy of .5707
 ```
 
 ```{r}
+# Logistic model medium
 pred_glm_med <- step(glm(FUTURE_CLASS_60 ~ NORM_PERC_PRICE + NORM_PERC_VOL + NORM_SMA + NORM_EWMA + MOM + MACD + STOCH.K + STOCH.D + RSI + VOR, train_df, family=binomial), direction = "both")
 
+# Model removed MOM, RSI, EWMA, MACD
+# Model is not heavily dominated
 print(summary(pred_glm_med))
 ```
 
 ```{r}
 # testing model against test dataset
-# rounding applies a threshold of 50% probability for survival
+# rounding applies a threshold of 50% probability for buy
 predicted <- round(predict(pred_glm_med, test_df, type="response"),0)
 # place predictions and actual class into a dataframe
 results <- data.frame(predicted, actual=test_df$FUTURE_CLASS_60)
 head(results)
 # Confusion Matrix with stats
 confusionMatrix(factor(predicted), factor(test_df$FUTURE_CLASS_60))
+# Model almost always predicts true
+# Accuracy of .6244
 ```
 
 ```{r}
+# logistic model long
 pred_glm_long <- step(glm(FUTURE_CLASS_240 ~ NORM_PERC_PRICE + NORM_PERC_VOL + NORM_SMA + NORM_EWMA + MOM + MACD + STOCH.K + STOCH.D + RSI + VOR, train_df, family=binomial), direction = "both")
 
+# Model removed SMA, EWMA, MACD
+# Model dominated by volatility ratio
 print(summary(pred_glm_long))
 ```
 
 ```{r}
 # testing model against test dataset
-# rounding applies a threshold of 50% probability for survival
+# rounding applies a threshold of 50% probability for buy
 predicted <- round(predict(pred_glm_long, test_df, type="response"),0)
 # place predictions and actual class into a dataframe
 results <- data.frame(predicted, actual=test_df$FUTURE_CLASS_240)
 head(results)
 # Confusion Matrix with stats
 confusionMatrix(factor(predicted), factor(test_df$FUTURE_CLASS_240))
+# Model almost always predicts buy
+# Accuracy of .6856
 ```
 
 ```{r}
+# Distribution of binary response variables
+# Note that as time frame gets longer, more stocks are "buys" due to bull market
 ggplot(master_dataset) + geom_bar(aes(x=FUTURE_CLASS_20))
 ggplot(master_dataset) + geom_bar(aes(x=FUTURE_CLASS_60))
 ggplot(master_dataset) + geom_bar(aes(x=FUTURE_CLASS_240))
 ```
 
 ```{r}
+# distribution of percent_change response variables
+# tends to normal distribution, cannot go below -100% change
 ggplot(master_dataset) + geom_histogram(aes(x=PERCENT_CHANGE_20))
 ggplot(master_dataset) + geom_histogram(aes(x=PERCENT_CHANGE_60))
 ggplot(master_dataset) + geom_histogram(aes(x=PERCENT_CHANGE_240))
