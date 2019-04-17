@@ -143,11 +143,21 @@ get_percent_values <- function(ticker_df, type) {
 ```
 
 ```{r}
-sp500_tickers <- sp500_tickers[1:1]
+skipped_ticker <- c(" ")
+
+dbWriteTable(conn=db, name="MMM", value=MMM_df, row.names = FALSE, append = TRUE)
+```
+
+```{r}
+sp500_tickers <- sp500_tickers[1:3]
 
 for(ticker in sp500_tickers) {
-  df <- get_stock_data(ticker)
-  df <- cbind(df,
+  
+  print(ticker)
+  
+  tryCatch({
+    df <- get_stock_data(ticker)
+    df <- cbind(df,
               PERCENT_PRICE = get_percent_values(df, "price"),
               PERCENT_VOL = get_percent_values(df, "volume"),
               SMA = get_SMA(df),
@@ -160,9 +170,18 @@ for(ticker in sp500_tickers) {
               RSI = RSI(df),
               VOR = VOR(df)
               )
-  assign(paste(ticker,"_df", sep = ""),df)
+    
+  }, warning = function(w) {
+    print("warning")
+  }, error = function(e) {
+    print(e)
+    
+  })
+  
+  Sys.sleep(5)
 }
-MMM_df
+
+skipped_ticker
 ```
 
 ```{r, table_setup, message=FALSE, echo=TRUE, warning=FALSE}
