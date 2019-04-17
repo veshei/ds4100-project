@@ -26,51 +26,64 @@ sp500_tickers <- replace(sp500_tickers, sp500_tickers == "BF.B", "BF-B")
 ```
 
 ```{r, SMA, message=FALSE, echo=TRUE, warning=FALSE}
-#Function to calculate simple moving average using fTrading library
+#Return the simple moving average
+#The SMA is calculated as the arithmetic average of an asset's price over some period.
+#The SMA is a technical indicator for determining if an asset price will continue or reverse a bull or bear trend.
 get_SMA <- function(ticker_df) {
-  sma <- SMA(ticker_df[,6]) #simple moving average
+  sma <- SMA(ticker_df[,6])
   sma <- replace_na(sma, 0)
   sma
 }
 ```
 
 ```{r, EWMA, message=FALSE, echo=TRUE, warning=FALSE}
-# Function to calculate the exponentially weighted moving average
+#Return the Exponentially Weighted Moving Average
+#SMA weights each return evenly, but data but returns from a year ago do not represent what returns would be the last week.
+#EWMA introduces lambda, which is called the smoothing parameter, fixing the problem by giving recent returns greater weight on the variance.
 get_EWMA <- function(ticker_df) {
-  EWMA(ticker_df[,6], lambda = .1) #exponentially weighted moving average
+  EWMA(ticker_df[,6], lambda = .1)
 }
 ```
 
 ```{r, MOM, message=FALSE, echo=TRUE, warning=FALSE}
-# Function to calculate the momentum indicator
+#Return the Momentum Indicator
+#Momentum mesaures the speed/velocity of price changes (rate of the rise and fall of stock prices)
+#From the standpoint of trending, momentum is a very useful indicator of strength or weakness in the issue's price
+#Found to be more useful during times of a rising market rather than falling
 MOM <- function(ticker_df) {
   momTA(ticker_df[,6]) #momentum 
 }
 ```
 
 ```{r, MACD, message=FALSE, echo=TRUE, warning=FALSE}
-# Function to calculate the Moving Average Convergence Divergence indicator
+#Return the Moving Average Convergence Divergence
+# trend-following momentum indicator that shows the relationship between two moving averages of a security's price
 MACD <- function(ticker_df) {
   macdTA(ticker_df[,6]) 
 }
 ```
 
 ```{r, STOCH, message=FALSE, echo=TRUE, warning=FALSE}
-# Function to calculate the Stochastics Oscillator
+# Returns the Stochastics Oscillator indiciator
+# It is a momentum indicator comparing a particular closing price of a security to a range of its prices over a certain period of time.
+# A stochastic oscillator is a popular technical indicator for generating overbought and oversold signals.
 STOCH <- function(ticker_df) {
   stochasticTA(ticker_df[,4], ticker_df[,2], ticker_df[,3])
 }
 ```
 
 ```{r, RSI, message=FALSE, echo=TRUE, warning=FALSE}
-# Function to calculate the relative strength index
+# Return the relative strength index
+# indicates to the trader whether or not an issue's price action is created by those over-buying or over-selling it. 
 RSI <- function(ticker_df){
   rsiTA(ticker_df[,6]) 
 }
 ```
 
 ```{r, VOR, message=FALSE, echo=TRUE, warning=FALSE}
-# Function to calculate the volatility ratio
+# Return the volatility ratio
+# measure that helps investors follow the volatility of a stock's price. 
+# used to identify price patterns and breakouts
 VOR <- function(ticker_df) {
   vorTA(ticker_df[,2], ticker_df[,3])
 }
@@ -217,4 +230,56 @@ for(ticker in selected_tickers) {
   dbWriteTable(conn = db, name = as.character(ticker), value = get(ticker),
                  row.names = FALSE, overwrite = TRUE)
 }
+```
+
+
+
+```{r}
+#Stock graph for AAPL
+#Indicators shown are Momentum, WMA, SMA, MACD, and EVWMA
+
+#Entire 5 years of data for AAPL
+getSymbols("AAPL", from='2014-10-16', to='2019-04-16')
+chartSeries(AAPL, TA = "addMomentum();addWMA();addSMA();addMACD();addEVWMA()", theme="white")
+
+#Display 200 day view starting from October 16th
+getSymbols("AAPL", from='2018-10-16', to='2019-04-16')
+chartSeries(AAPL, TA = "addMomentum();addWMA();addSMA();addMACD();addEVWMA()", theme="white",major.ticks='months',subset='first 28 weeks')
+
+#Displays 50 day view starting from Dec 17th
+getSymbols("AAPL", from='2018-12-16', to='2019-04-16')
+chartSeries(AAPL, TA = "addMomentum();addWMA();addSMA();addMACD();addEVWMA()", theme="white",major.ticks='months',subset='first 50 days')
+```
+
+```{r}
+#Stock graph for TSLA
+#Indicators shown are Momentum, WMA, SMA, MACD, and EVWMA
+
+#Entire 5 years of data for TSLA
+getSymbols("TSLA", from='2014-10-16', to='2019-04-16')
+chartSeries(TSLA, TA = "addMomentum();addWMA();addSMA();addMACD();addEVWMA()", theme="white")
+
+#Display 200 day view starting from October 16th
+getSymbols("TSLA", from='2018-10-16', to='2019-04-16')
+chartSeries(TSLA, TA = "addMomentum();addWMA();addSMA();addMACD();addEVWMA()", theme="white",major.ticks='months',subset='first 28 weeks')
+
+#Displays 50 day view starting from Dec 17th
+getSymbols("TSLA", from='2018-12-16', to='2019-04-16')
+chartSeries(TSLA, TA = "addMomentum();addWMA();addSMA();addMACD();addEVWMA()", theme="white",major.ticks='months',subset='first 50 days')
+```
+
+
+```{r}
+#histogram of all indicators, chosen value is AAPL
+aapl_df <- dbGetQuery(db, "SELECT * FROM AAPL")
+
+ggplot(aapl_df, mapping=aes(x=SMA)) + geom_histogram(aes(y=..density..), bins=50) + geom_density(col = "red")
+ggplot(aapl_df, mapping=aes(x=EWMA)) + geom_histogram(aes(y=..density..), bins=50) + geom_density(col = "red")
+ggplot(aapl_df, mapping=aes(x=MACD)) + geom_histogram(aes(y=..density..), bins=50) + geom_density(col = "red")
+ggplot(aapl_df, mapping=aes(x=VOR)) + geom_histogram(aes(y=..density..), bins=50) + geom_density(col = "red")
+ggplot(aapl_df, mapping=aes(x=PERCENT_VOL)) + geom_histogram(aes(y=..density..), bins=50) + geom_density(col = "red")
+ggplot(aapl_df, mapping=aes(x=PERCENT_PRICE)) + geom_histogram(aes(y=..density..), bins=50) + geom_density(col = "red")
+ggplot(aapl_df, mapping=aes(x=RSI)) + geom_histogram(aes(y=..density..), bins=50) + geom_density(col = "red")
+ggplot(aapl_df, mapping=aes(x=MOM)) + geom_histogram(aes(y=..density..), bins=50) + geom_density(col = "red")
+
 ```
