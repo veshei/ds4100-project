@@ -42,6 +42,10 @@ Process Justifications and Technical Choices
   The team first began with regression on the universal dataset of stocks, which was suspected to be difficult to model simply due to different sectors included in the dataset and the unlimited range of real world results. However, the results were extremely poor with R^2 values of under 0.05 repeatedly ocurring for the short term linear regression. There was a general trend of increasing R^2 values for longer time periods when looking at the medium and long term variables. A plot of the actual to predicted values showed that there was no apparent correlation.The team quickly realized there were a few factors at play, such as all three models being dominated by different technical indicators. This shows that none of the technical indicators for linear regression were proving to be particularly robust or consistently impactful. The team saw that the models were often dominated by a single variable that had a coefficient with one or two orders of magnitude above the rest, which further reinforces the previous point.
   
   The team then moved onto logistic regression, which was suspected to be much more simpler to identify due to the binary classification. The results showed that the short term model had an accuracy rate of 65%, which increased as expected due to the mean-reversion effect of the bull market for the medium and long term reponses up to 80%. This showed that classification was promising, but upon digging into the data, the team realized that the models had an extreme issue of specificity. Nearly all of the predictions were to buy, which meant that the accuracy rate simply depended on bull market characteristics rather than the technical analysis indicators.
+  
+  A final model was then evaluated for the universal dataset, but attempting to use 11 nearest neighbors on 300,000 training observations to classify over a 100,000 test observations was demonstrating to take far too long. An hour into the algorithm, the team decided to cancel it and move onto other analysis.
+  
+  The previous models on the varying time frames were run again on indiidual stocks, which the models were able to predict slighly more accurately. However, the same issues were again encountered in the form of a single feature dominating the prediction and near zero R^2 values for linear regression and very high specificity for logistic regression. The team attempted to try kNN again with a k of 11 and it showed to be very robust with accuracy values of up to 
 
 Project Issues and Resolution
 -----
@@ -58,34 +62,9 @@ Project Issues and Resolution
 Input and Output from R Code
 -----
 
-An example of a stock table we generated. 
-```{r, example_data, message=FALSE, echo=TRUE, warning=FALSE}
-head(dbReadTable(conn = db, "AAPL"))
-```
-
-An example of what an analyst may look at when viewing a stock. Comparing 50 day to 200 day chart series. 
-```{r, stock_charts, message=FALSE, echo=TRUE, warning=FALSE}
-#Stock graph for AAPL
-#Indicators shown are Momentum, WMA, SMA, MACD, and EVWMA
-
-#Display 200 day view starting from October 16th
-getSymbols("AAPL", from='2018-10-16', to='2019-04-16')
-chartSeries(AAPL, TA = "addMomentum();addWMA();addSMA();addMACD();addEVWMA()", theme="white",major.ticks='months',subset='first 28 weeks')
-
-#Displays 50 day view starting from Dec 17th
-getSymbols("AAPL", from='2018-12-16', to='2019-04-16')
-chartSeries(AAPL, TA = "addMomentum();addWMA();addSMA();addMACD();addEVWMA()", theme="white",major.ticks='months',subset='first 50 days')
-```
-
 Insights and Potential Future work
 -----
   Potential future work we foresee for this project is to increase the number of stocks or the number of years we feed into our predictive algorithms. We hope that with more data, we’d be able to increase the accuracy of our data. We could also expand the number of technical indicators used to see if that would improve the accuracy of our predictions. Another approach we could explore is to use different baseline data such as social media, fundamentals, or the economy to see if those are better predictors of the US stock market. We could also test out more predictive algorithms to determine the most accurate algorithm.  
 
-Works Cited
------
-Chalabi, Yohan. "FTrading v3010.78." FTrading Package | R Documentation,   www.rdocumentation.org/packages/fTrading/versions/3010.78.
 
-Miller, Curtis. “An Introduction to Stock Market Data Analysis with R (Part 1).” Curtis Miller's Personal Website, 28 Mar. 2017, ntguardian.wordpress.com/2017/03/27/introduction-stock-market-data-r-1/.
-
-Wikipedia. "List of S&P 500 Companies." Wikipedia, Wikimedia Foundation, 13 Apr. 2019, en.wikipedia.org/wiki/List_of_S%26P_500_companies.
 
