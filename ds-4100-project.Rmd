@@ -194,6 +194,19 @@ for (curr_tick in sp500_tickers) {
 
 ```{r}
 dbListTables(db)
+dbListFields(db, "MMM")
+```
+
+```{r}
+sp500_tickers <- sp500_tickers[1:1]
+
+for (curr_tick in sp500_tickers) {
+  df_name <- paste(curr_tick, "_df", sep = "")
+  dbWriteTable(conn = db, name = as.character(curr_tick), value = get(df_name),
+             row.names = FALSE, overwrite = TRUE)
+  head(dbReadTable(conn = db, as.character(curr_tick)))
+}
+dbReadTable(conn = db, as.character(curr_tick))
 ```
 
 
