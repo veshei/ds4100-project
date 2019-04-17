@@ -54,11 +54,9 @@ Insights and Potential Future work
 
 Works Cited
 -----
+Chalabi, Yohan. "FTrading v3010.78." FTrading Package | R Documentation,   www.rdocumentation.org/packages/fTrading/versions/3010.78.
+
 Miller, Curtis. “An Introduction to Stock Market Data Analysis with R (Part 1).” Curtis Miller's Personal Website, 28 Mar. 2017, ntguardian.wordpress.com/2017/03/27/introduction-stock-market-data-r-1/.
 
 Wikipedia. "List of S&P 500 Companies." Wikipedia, Wikimedia Foundation, 13 Apr. 2019, en.wikipedia.org/wiki/List_of_S%26P_500_companies.
-
-
-Chalabi, Yohan. "FTrading v3010.78." FTrading Package | R Documentation, www.rdocumentation.org/packages/fTrading/versions/3010.78.
-=======
 
