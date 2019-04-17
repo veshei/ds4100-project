@@ -12,6 +12,7 @@ library(tidyverse)
 library(RSQLite)
 library(fTrading)
 library(ggplot2)
+library(quantmod)
 db <- dbConnect(SQLite(), dbname = "ds4100_project_db.sqlite")
 ```
 
@@ -19,102 +20,53 @@ db <- dbConnect(SQLite(), dbname = "ds4100_project_db.sqlite")
 ```{r}
 sp500_page <- read_html("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies")
 sp500_tickers <- sp500_page %>% html_nodes("#constituents td:nth-child(2)") %>% html_text()
+sp500_tickers <- replace(sp500_tickers, sp500_tickers == "BRK.B", "BRK-B")
+sp500_tickers <- replace(sp500_tickers, sp500_tickers == "BF.B", "BF-B")
 sp500_tickers
-```
-
-#get tibble of dates, adj closing price, and volume for given ticker.
-```{r}
-get_stock_data <- function(ticker) {
-  
-  yahoo_finance_url <- paste("https://finance.yahoo.com/quote/", ticker, "/history?period1=915339600&period2=1553313600&interval=1mo&filter=history&frequency=1mo", sep = "")
-  page <- read_html(yahoo_finance_url)
-  
-  div_dates <- get_div_dates(ticker)
-  split_dates <- get_split_dates(ticker)
-  
-  root <- html_node(page, 'body')
-  body <- root %>% html_nodes('tbody tr')
-
-  #returns the dates, removing dates that correspond to dividends
-  
-  format_month <- c("Jan"="01","Feb"="02","Mar"="03","Apr"="04","May"="05","Jun"="06","Jul"="07","Aug"="08","Sep"="09","Oct"="10","Nov"="11","Dec"="12")
-  
-  
-  dates <- body %>% html_nodes('td:nth-child(1)') %>% html_text()
-  dates <- dates[which(!(dates %in% div_dates))]
-  dates <- dates[which(!(dates %in% split_dates))] %>% str_replace_all(format_month) %>% str_replace("\\s01,\\s","/01/") %>% str_remove_all("\\s") %>% str_remove("20") %>% as.Date("%m/%d/%y")
-  
-  highs <- body %>% html_nodes('td:nth-child(3)') %>% html_text() %>% str_replace_all(",","") %>% as.numeric()
-  lows <- body %>% html_nodes('td:nth-child(4)') %>% html_text() %>% str_replace_all(",","") %>% as.numeric()
-  Adjusted_Closes <- body %>% html_nodes('td:nth-child(6)') %>% html_text() %>% str_replace_all(",","") %>% as.numeric()
-  volumes <- body %>% html_nodes('td:nth-child(7)') %>% html_text() %>% str_replace_all(",","") %>% as.numeric()
-
-  tibble(
-    Date = dates,
-    Adjusted_Close = Adjusted_Closes,
-    Volume = volumes,
-    High = highs,
-    Low = lows
-  )
-}
-
-#returns a list of dividend dates. we want to remove these dates from the historical data
-get_div_dates <- function(ticker) {
-  yahoo_finance_div_url <- paste("https://finance.yahoo.com/quote/", ticker, "/history?period1=915339600&period2=1553313600&interval=1mo&filter=div&frequency=1mo", sep = "")
-  
-  read_html(yahoo_finance_div_url) %>% html_node('body') %>% html_nodes('tbody tr td:nth-child(1)') %>% html_text()
-}
-
-#returns a list of stock dates. we want to remove these dates from the historical data
-get_split_dates <- function(ticker) {
-  yahoo_finance_split_url <- paste("https://finance.yahoo.com/quote/", ticker, "/history?period1=915339600&period2=1553313600&interval=1mo&filter=split&frequency=1mo", sep = "")
-  
-  read_html(yahoo_finance_split_url) %>% html_node('body') %>% html_nodes('tbody tr td:nth-child(1)') %>% html_text()
-}
 ```
 
 ```{r}
 get_SMA <- function(ticker_df) {
-  pad <- c(0,0,0,0)
-  sma <- SMA(ticker_df$Adjusted_Close) #simple moving average
-  c(pad, sma)
+  sma <- SMA(ticker_df[,6]) #simple moving average
+  sma <- replace_na(sma, 0)
+  sma
 }
 ```
 
 ```{r}
 # need to normalize before
 get_EWMA <- function(ticker_df) {
-  EWMA(ticker_df$Adjusted_Close, lambda = .1) #exponentially weighted moving average
+  EWMA(ticker_df[,6], lambda = .1) #exponentially weighted moving average
 }
 ```
 
 ```{r}
 MOM <- function(ticker_df) {
-  momTA(ticker_df$Adjusted_Close) #momentum 
+  momTA(ticker_df[,6]) #momentum 
 }
 ```
 
 ```{r}
 MACD <- function(ticker_df) {
-  macdTA(ticker_df$Adjusted_Close) #moving average conversion to divergents
+  macdTA(ticker_df[,6]) #moving average conversion to divergents
 }
 ```
 
 ```{r}
 STOCH <- function(ticker_df) {
-  stochasticTA(ticker_df$Adjusted_Close, ticker_df$High, ticker_df$Low)
+  stochasticTA(ticker_df[,4], ticker_df[,2], ticker_df[,3])
 }
 ```
 
 ```{r}
 RSI <- function(ticker_df){
-  rsiTA(ticker_df$Adjusted_Close) #relative strength index
+  rsiTA(ticker_df[,6]) #relative strength index
 }
 ```
 
 ```{r}
 VOR <- function(ticker_df) {
-  vorTA(ticker_df$High, ticker_df$Low) #volatility ratio
+  vorTA(ticker_df[,2], ticker_df[,3]) #volatility ratio
 }
 ```
 
@@ -133,99 +85,136 @@ normalize <- function(ticker_df, type) {
 ```{r}
 get_percent_values <- function(ticker_df, type) {
   if (type == "price") {
-    curr_val <- (dplyr::lead(ticker_df$Adjusted_Close, 1) - ticker_df$Adjusted_Close) / ticker_df$Adjusted_Close * 100
+    curr_val <- (dplyr::lead(ticker_df[,6], 1) - ticker_df[,6]) / ticker_df[,6] * 100
   } else if (type == "volume") {
-    curr_val <- (dplyr::lead(ticker_df$Volume, 1) - ticker_df$Volume) / ticker_df$Volume * 100
+    curr_val <- (dplyr::lead(ticker_df[,5], 1) - ticker_df[,5]) / ticker_df[,5] * 100
   }
   curr_val <- c(0, curr_val[1:length(curr_val) - 1])
   curr_val
 }
 ```
 
-```{r, table_setup, message=FALSE, echo=TRUE, warning=FALSE}
-#Code to setup all the tables we plan to use in SQLite
-sp500_tickers <- sp500_tickers[1:3]
-
-for (curr_tick in sp500_tickers) {
-  ticker_query <- paste(
-    "CREATE TABLE IF NOT EXISTS [", curr_tick,
-    "] (Ticker TEXT PRIMARY KEY,
-    Date TEXT
-    Adjusted_Close INTEGER,
-    Volume INTEGER,
-    High INTEGER,
-    Low INTEGER,
-    PERCENT_VOL INTEGER,
-    PERCENT_PRICE INTEGER,
-    SMA INTEGER,
-    EWMA INTEGER,
-    NORM_SMA INTEGER,
-    NORM_EWMA INTEGER,
-    MOM INTEGER,
-    MACD INTEGER,
-    STOCHK INTEGER,
-    STOCHD INTEGER,
-    RSI INTEGER,
-    VOR INTEGER)", sep="")
-  dbSendQuery(db, ticker_query)
+```{r}
+# num_months is how the difference is calculated: use 1, 3, 12
+get_future_percent_change <- function(ticker_df, num_months) {
+  curr_val <- (dplyr::lead(ticker_df[,6], num_months) - ticker_df[,6]) /
+      ticker_df[,6] * 100
+  #max_range = length(curr_val) - num_months
+  #curr_val <- c(curr_val[1:max_range], rep(0,num_months))
+  curr_val
 }
 ```
 
 ```{r}
-
-for(ticker in sp500_tickers) {
-  
-  print(ticker)
-  
-  tryCatch({
-    df <- get_stock_data(ticker)
-    df <- cbind(df,
-              PERCENT_PRICE = get_percent_values(df, "price"),
-              PERCENT_VOL = get_percent_values(df, "volume"),
-              SMA = get_SMA(df),
-              EWMA = get_EWMA(df),
-              NORM_SMA = normalize(df, 'SMA'),
-              NORM_EWMA = normalize(df, 'EWMA'),
-              MOM = MOM(df),
-              MACD = MACD(df),
-              STOCH = STOCH(df),
-              RSI = RSI(df),
-              VOR = VOR(df)
-              )
-    df_name <- paste(ticker, "_df", sep = "")
-    assign(df_name, df)
-  }, warning = function(w) {
-    print(w)
-  }, error = function(e) {
-    print(e)
-    
-  })
-  
-  tryCatch({
-    df_name <- paste(ticker, "_df", sep = "")
-    dbWriteTable(conn = db, name = as.character(ticker), value = get(df_name), 
-                 row.names = FALSE, overwrite = TRUE)
-  }, warning = function(w) {
-    print(w)
-  }, error = function(e) {
-    print(e)
-    
-  })
-  
-  Sys.sleep(5)
+# num_months is how the difference is calculated: use 1, 3, 12
+get_buy_class <- function(ticker_df, num_months) {
+  buy_class <- dplyr::lead(ticker_df[,6], num_months) > ticker_df[,6]
+  buy_class
 }
+```
+
+
+```{r, table_setup, message=FALSE, echo=TRUE, warning=FALSE}
+#Code to setup all the tables we plan to use in SQLite
+# sp500_tickers <- sp500_tickers[1:3]
+# 
+# for (curr_tick in sp500_tickers) {
+#   ticker_query <- paste(
+#     "CREATE TABLE IF NOT EXISTS [", curr_tick,
+#     "] (Ticker TEXT PRIMARY KEY,
+#     Date TEXT
+#     Adjusted_Close INTEGER,
+#     Volume INTEGER,
+#     High INTEGER,
+#     Low INTEGER,
+#     PERCENT_VOL INTEGER,
+#     PERCENT_PRICE INTEGER,
+#     SMA INTEGER,
+#     EWMA INTEGER,
+#     NORM_SMA INTEGER,
+#     NORM_EWMA INTEGER,
+#     MOM INTEGER,
+#     MACD INTEGER,
+#     STOCHK INTEGER,
+#     STOCHD INTEGER,
+#     RSI INTEGER,
+#     VOR INTEGER)", sep="")
+#   dbSendQuery(db, ticker_query)
+# }
+```
+
+```{r}
+
+# for(ticker in sp500_tickers) {
+#   
+#   print(ticker)
+#   
+#   tryCatch({
+#     df <- get_stock_data(ticker)
+#     df <- cbind(df,
+#               PERCENT_PRICE = get_percent_values(df, "price"),
+#               PERCENT_VOL = get_percent_values(df, "volume"),
+#               SMA = get_SMA(df),
+#               EWMA = get_EWMA(df),
+#               NORM_SMA = normalize(df, 'SMA'),
+#               NORM_EWMA = normalize(df, 'EWMA'),
+#               MOM = MOM(df),
+#               MACD = MACD(df),
+#               STOCH = STOCH(df),
+#               RSI = RSI(df),
+#               VOR = VOR(df)
+#               )
+#     df_name <- paste(ticker, "_df", sep = "")
+#     assign(df_name, df)
+#   }, warning = function(w) {
+#     print(w)
+#   }, error = function(e) {
+#     print(e)
+#     
+#   })
+#   
+#   tryCatch({
+#     df_name <- paste(ticker, "_df", sep = "")
+#     dbWriteTable(conn = db, name = as.character(ticker), value = get(df_name), 
+#                  row.names = FALSE, overwrite = TRUE)
+#   }, warning = function(w) {
+#     print(w)
+#   }, error = function(e) {
+#     print(e)
+#     
+#   })
+#   
+#   Sys.sleep(5)
+# }
 ```
 
 ```{r}
 # dbReadTable(conn = db, as.character("ABBV"))
 ```
 
+```{r}
+for(ticker in sp500_tickers) {
+  getSymbols(ticker, from='2014-04-16', to='2019-04-16')
+  assign(ticker, data.frame(get(ticker)))
+  assign(ticker, na.omit(get(ticker)))
+}
+```
 
 ```{r}
-ggplot(data = MMM_df, mapping = aes(x = Date, y = EWMA)) + 
-  geom_point() +
-  geom_smooth(method = "glm") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
-ggplot(data = MMM_df, mapping = aes(x = Date, y = SMA)) + 
-  geom_point() +
-  geom_smooth(method = "glm") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+for(ticker in sp500_tickers[1:1]) {
+  ticker <- cbind(get(ticker),
+        PERCENT_PRICE = get_percent_values(ticker, "price"),
+        PERCENT_VOL = get_percent_values(ticker, "volume"),
+        SMA = get_SMA(ticker),
+        EWMA = get_EWMA(ticker),
+        NORM_SMA = normalize(ticker, 'SMA'),
+        NORM_EWMA = normalize(ticker),
+        MOM = MOM(ticker),
+        MACD = MACD(ticker),
+        STOCH = STOCH(ticker),
+        RSI = RSI(ticker),
+        VOR = VOR(ticker)
+  )
+}
+sp500_tickers[1:1]
 ```
