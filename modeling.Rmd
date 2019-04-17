@@ -131,7 +131,6 @@ master_dataset <- master_dataset %>%
          FUTURE_CLASS_20, FUTURE_CLASS_60, FUTURE_CLASS_240)
 ```
 
-
 ```{r}
 # Looking for correlations
 correlations <-  cor(master_dataset)
