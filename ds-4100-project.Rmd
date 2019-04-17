@@ -17,15 +17,16 @@ db <- dbConnect(SQLite(), dbname = "ds4100_project_db.sqlite")
 ```
 
 #retrieve S&P 500 company tickers
-```{r}
+```{r, sp500, message=FALSE, echo=TRUE, warning=FALSE}
+#Using web scraping to retrieve a list of the names of companies in the s&p 500
 sp500_page <- read_html("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies")
 sp500_tickers <- sp500_page %>% html_nodes("#constituents td:nth-child(2)") %>% html_text()
 sp500_tickers <- replace(sp500_tickers, sp500_tickers == "BRK.B", "BRK-B")
 sp500_tickers <- replace(sp500_tickers, sp500_tickers == "BF.B", "BF-B")
-sp500_tickers
 ```
 
-```{r}
+```{r, SMA, message=FALSE, echo=TRUE, warning=FALSE}
+#Function to calculate simple moving average using fTrading library
 get_SMA <- function(ticker_df) {
   sma <- SMA(ticker_df[,6]) #simple moving average
   sma <- replace_na(sma, 0)
@@ -33,44 +34,50 @@ get_SMA <- function(ticker_df) {
 }
 ```
 
-```{r}
-# need to normalize before
+```{r, EWMA, message=FALSE, echo=TRUE, warning=FALSE}
+# Function to calculate the exponentially weighted moving average
 get_EWMA <- function(ticker_df) {
   EWMA(ticker_df[,6], lambda = .1) #exponentially weighted moving average
 }
 ```
 
-```{r}
+```{r, MOM, message=FALSE, echo=TRUE, warning=FALSE}
+# Function to calculate the momentum indicator
 MOM <- function(ticker_df) {
   momTA(ticker_df[,6]) #momentum 
 }
 ```
 
-```{r}
+```{r, MACD, message=FALSE, echo=TRUE, warning=FALSE}
+# Function to calculate the Moving Average Convergence Divergence indicator
 MACD <- function(ticker_df) {
-  macdTA(ticker_df[,6]) #moving average conversion to divergents
+  macdTA(ticker_df[,6]) 
 }
 ```
 
-```{r}
+```{r, STOCH, message=FALSE, echo=TRUE, warning=FALSE}
+# Function to calculate the Stochastics Oscillator
 STOCH <- function(ticker_df) {
   stochasticTA(ticker_df[,4], ticker_df[,2], ticker_df[,3])
 }
 ```
 
-```{r}
+```{r, RSI, message=FALSE, echo=TRUE, warning=FALSE}
+# Function to calculate the relative strength index
 RSI <- function(ticker_df){
-  rsiTA(ticker_df[,6]) #relative strength index
+  rsiTA(ticker_df[,6]) 
 }
 ```
 
-```{r}
+```{r, VOR, message=FALSE, echo=TRUE, warning=FALSE}
+# Function to calculate the volatility ratio
 VOR <- function(ticker_df) {
-  vorTA(ticker_df[,2], ticker_df[,3]) #volatility ratio
+  vorTA(ticker_df[,2], ticker_df[,3])
 }
 ```
 
-```{r}
+```{r, Normalization, message=FALSE, echo=TRUE, warning=FALSE}
+# Function to normalize the SMA and EWMA
 normalize <- function(ticker_df, type) {
   if(type == 'SMA') {
     sma <- get_SMA(ticker_df)
@@ -82,7 +89,8 @@ normalize <- function(ticker_df, type) {
 }
 ```
 
-```{r}
+```{r, percent_values, message=FALSE, echo=TRUE, warning=FALSE}
+# Function to calculate the percent values for price and volume
 get_percent_values <- function(ticker_df, type) {
   if (type == "price") {
     curr_val <- (dplyr::lead(ticker_df[,6], 1) - ticker_df[,6]) / ticker_df[,6] * 100
@@ -94,7 +102,8 @@ get_percent_values <- function(ticker_df, type) {
 }
 ```
 
-```{r}
+```{r, future_percent_change, message=FALSE, echo=TRUE, warning=FALSE}
+# Function to calculate the future percent change of a stock
 # num_days is how the difference is calculated: use 20, 60, 240
 get_future_percent_change <- function(ticker_df, num_days) {
   curr_val <- (dplyr::lead(ticker_df[,6], num_days) - ticker_df[,6]) /
@@ -103,8 +112,9 @@ get_future_percent_change <- function(ticker_df, num_days) {
 }
 ```
 
-```{r}
-# num_months is how the difference is calculated: use 20, 60, 240
+```{r, buy_class, message=FALSE, echo=TRUE, warning=FALSE}
+# Function to calculate whether or not to buy a stock. 
+# num_days is how the difference is calculated: use 20, 60, 240
 get_buy_class <- function(ticker_df, num_days) {
   buy_class <- dplyr::lead(ticker_df[,6], num_days) > ticker_df[,6]
   as.numeric(buy_class)
@@ -112,7 +122,8 @@ get_buy_class <- function(ticker_df, num_days) {
 ```
 
 
-```{r}
+```{r, stock_data, message=FALSE, echo=TRUE, warning=FALSE}
+# Function to pull the stock data for 5 years for the S&P 500 companies from quant mod
 for(ticker in sp500_tickers) {
   getSymbols(ticker, from='2014-04-16', to='2019-04-16')
   assign(ticker, data.frame(get(ticker)))
@@ -120,7 +131,8 @@ for(ticker in sp500_tickers) {
 }
 ```
 
-```{r}
+```{r, outliers, message=FALSE, echo=TRUE, warning=FALSE}
+# Function to remove outliers from the data based on the observed lengths
 selected_tickers = c()
 for(ticker in sp500_tickers) {
   if (dim(get(ticker))[1] > 1000) {
@@ -129,7 +141,8 @@ for(ticker in sp500_tickers) {
 }
 ```
 
-```{r}
+```{r, lengths, message=FALSE, echo=TRUE, warning=FALSE}
+# Function to map all the stock data frames lengths into a table
 observation_lengths = c()
 for(ticker in sp500_tickers) {
   observation_lengths <- data.frame(lengths = rbind(observation_lengths,
@@ -138,7 +151,8 @@ for(ticker in sp500_tickers) {
 observation_lengths
 ```
 
-```{r}
+```{r, lengths_histogram, message=FALSE, echo=TRUE, warning=FALSE}
+# Function to plot the density of the lengths across the dataset
 ggplot(observation_lengths, aes(x= lengths)) + 
   geom_histogram(aes(y=..density..),
                  binwidth= 500,
@@ -146,7 +160,8 @@ ggplot(observation_lengths, aes(x= lengths)) +
   geom_density(alpha=.2, fill="#FF6666")
 ```
 
-```{r}
+```{r, dataframe_consolidation, message=FALSE, echo=TRUE, warning=FALSE}
+# Function to consolidate the stock data with the calculated technical indicators
 for(ticker in selected_tickers) {
     temp <- cbind(get(ticker),
         PERCENT_PRICE = get_percent_values(get(ticker), "price"),
@@ -172,7 +187,7 @@ for(ticker in selected_tickers) {
 ```
 
 ```{r, table_setup, message=FALSE, echo=TRUE, warning=FALSE}
-#Code to setup all the tables we plan to use in SQLite
+# Code to setup the stock tables we plan to use in SQLite
 for (curr_tick in selected_tickers) {
   ticker_query <- paste(
     "CREATE TABLE IF NOT EXISTS [", curr_tick,
@@ -205,10 +220,10 @@ for (curr_tick in selected_tickers) {
 }
 ```
 
-```{r}
+```{r, db_mapping, message=FALSE, echo=TRUE, warning=FALSE}
+# Function that writes all the data frames to the appropriate SQLite table
 for(ticker in selected_tickers) {
   dbWriteTable(conn = db, name = as.character(ticker), value = get(ticker),
                  row.names = FALSE, overwrite = TRUE)
 }
 ```
-
