@@ -6,6 +6,7 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
+# Library import
 knitr::opts_chunk$set(echo = TRUE)
 library(rvest)
 library(tidyverse)
@@ -16,34 +17,61 @@ library(quantmod)
 library(corrplot)
 library(caret)
 library(class)
+# connecting to database
 db <- dbConnect(SQLite(), dbname = "ds4100_project_db.sqlite")
 ```
 
 ```{r}
-# database contains 619622 observations
-master_dataset = dbReadTable(db,"AAPL")
-master_dataset = master_dataset[,8:length(master_dataset)]
-num_og_obs = dim(master_dataset)[1]
-print(num_og_obs)
+# Read in datast for specific stock
+ticker_data = dbReadTable(db,"AAPL")
+ticker_data = ticker_data[,8:length(ticker_data)]
+# size of the dataset
+dim(ticker_data)[1]
 ```
 
 ```{r}
-dbListTables(db)
+# Removes NAs, pecent vol initializations at 0, outlier percent vols, SMA/MOM/RSI initialisation padding
+clean_data <- function(ticker_data) {
+  num_curr_obs = dim(ticker_data)[1]
+  print(paste("Initial Dataset of",toString(num_curr_obs)))
+
+  ticker_data = na.omit(ticker_data)
+  print(paste("Removed:",toString(num_curr_obs-dim(ticker_data)[1])))
+  
+  num_curr_obs = dim(ticker_data)[1]
+  ticker_data = ticker_data[ticker_data$PERCENT_VOL != 0,]
+  print(paste("Removed:",toString(num_curr_obs-dim(ticker_data)[1])))
+  
+  num_curr_obs = dim(ticker_data)[1]
+  ticker_data = ticker_data[ticker_data$PERCENT_VOL < 1000,]
+  print(paste("Removed:",toString(num_curr_obs-dim(ticker_data)[1])))
+  
+  num_curr_obs = dim(ticker_data)[1]
+  ticker_data = ticker_data[ticker_data$SMA != 0,]
+  print(paste("Removed:",toString(num_curr_obs-dim(ticker_data)[1])))
+  
+  num_curr_obs = dim(ticker_data)[1]
+  ticker_data = ticker_data[ticker_data$MOM != 0,]
+  print(paste("Removed:",toString(num_curr_obs-dim(ticker_data)[1])))
+  
+  num_curr_obs = dim(ticker_data)[1]
+  ticker_data = ticker_data[ticker_data$RSI != 0,]
+  print(paste("Removed:",toString(num_curr_obs-dim(ticker_data)[1])))
+  
+  num_curr_obs = dim(ticker_data)[1]
+  ticker_data = ticker_data[ticker_data$RSI != 1,]
+  print(paste("Removed:",toString(num_curr_obs-dim(ticker_data)[1])))
+  
+  print(paste("Final Dataset of",toString(num_curr_obs)))
+  ticker_data
+}
+
+# clean the data
+ticker_data = clean_data(ticker_data)
 ```
 
 ```{r}
-# Removed 118329 NAs
-num_curr_obs = dim(master_dataset)[1]
-print(num_curr_obs)
-print(num_og_obs - dim(master_dataset)[1])
-master_dataset = na.omit(master_dataset)
-print(num_og_obs - dim(master_dataset)[1])
-master_dataset = master_dataset[master_dataset$PERCENT_VOL != 0,]
-master_dataset = master_dataset[master_dataset$PERCENT_VOL < 1000,]
-print(dim(master_dataset)[1])
-```
-
-```{r}
+# normalisation for SMA, EWMA, Percent Price, Percent Vol based on min-max
 normalize <- function(ticker_df, type) {
   if(type == 'SMA') {
     sma <- ticker_df$SMA
@@ -62,81 +90,46 @@ normalize <- function(ticker_df, type) {
 ```
 
 ```{r}
-master_dataset = cbind(master_dataset,
-                       NORM_PERC_PRICE = normalize(master_dataset, "PERCENT_PRICE"),
-                       NORM_PERC_VOL = normalize(master_dataset, "PERCENT_VOL"),
-                       NORM_SMA = normalize(master_dataset, "SMA"),
-                       NORM_EWMA = normalize(master_dataset, "EWMA")
+# normalizing the dataset
+ticker_data = cbind(ticker_data,
+                       NORM_PERC_PRICE = normalize(ticker_data, "PERCENT_PRICE"),
+                       NORM_PERC_VOL = normalize(ticker_data, "PERCENT_VOL"),
+                       NORM_SMA = normalize(ticker_data, "SMA"),
+                       NORM_EWMA = normalize(ticker_data, "EWMA")
                        )
-```
-
-```{r}
-num_curr_obs = dim(master_dataset)[1]
-num_curr_obs
-master_dataset = master_dataset[master_dataset$SMA != 0,]
-dim(master_dataset)[1]
-master_dataset = master_dataset[master_dataset$MOM != 0,]
-dim(master_dataset)[1]
-master_dataset = master_dataset[master_dataset$RSI != 0,]
-dim(master_dataset)[1]
-master_dataset = master_dataset[master_dataset$RSI != 1,]
-dim(master_dataset)[1]
 ```
 
 ```{r}
 # determining a training size based on 70% of the dataset
 training_perc = .70
-training_size = round(dim(master_dataset)[[1]] * training_perc,0)
+training_size = round(dim(ticker_data)[[1]] * training_perc,0)
 
 # creating a random index with the determined training size for selecting the training/testing set
-training_idx = sample(nrow(master_dataset),size=training_size,replace=FALSE)
-train_df = master_dataset[training_idx,]
-test_df = master_dataset[-training_idx,]
+training_idx = sample(nrow(ticker_data),size=training_size,replace=FALSE)
+train_df = ticker_data[training_idx,]
+test_df = ticker_data[-training_idx,]
 ```
 
 ```{r}
-# Looking for correlations for numeric factors
-master_dataset <- master_dataset %>%
+# Selecting the desired features and response variables
+ticker_data <- ticker_data %>%
   select(NORM_PERC_PRICE, NORM_PERC_VOL, NORM_SMA, NORM_EWMA, MOM, MACD, STOCH.K, STOCH.D, RSI, VOR,
          PERCENT_CHANGE_20, PERCENT_CHANGE_60, PERCENT_CHANGE_240,
          FUTURE_CLASS_20, FUTURE_CLASS_60, FUTURE_CLASS_240)
-correlations <-  cor(master_dataset)
+```
+
+
+```{r}
+# Looking for correlations
+correlations <-  cor(ticker_data)
 corrplot(correlations,"circle")
-# correlations <-  cor(master_dataset %>%
-#   select(NORM_PERC_PRICE, NORM_PERC_VOL, NORM_SMA, NORM_EWMA, MOM, MACD, STOCH.K, STOCH.D, RSI, VOR,
-#          PERCENT_CHANGE_20))
-# corrplot(correlations,"circle")
-# 
-# correlations <-  cor(master_dataset %>%
-#   select(NORM_PERC_PRICE, NORM_PERC_VOL, NORM_SMA, NORM_EWMA, MOM, MACD, STOCH.K, STOCH.D, RSI, VOR,
-#          PERCENT_CHANGE_60))
-# corrplot(correlations,"circle")
-# 
-# correlations <-  cor(master_dataset %>%
-#   select(NORM_PERC_PRICE, NORM_PERC_VOL, NORM_SMA, NORM_EWMA, MOM, MACD, STOCH.K, STOCH.D, RSI, VOR,
-#          PERCENT_CHANGE_240))
-# corrplot(correlations,"circle")
-# 
-# correlations <-  cor(master_dataset %>%
-#   select(NORM_PERC_PRICE, NORM_PERC_VOL, NORM_SMA, NORM_EWMA, MOM, MACD, STOCH.K, STOCH.D, RSI, VOR,
-#          FUTURE_CLASS_20))
-# corrplot(correlations,"circle")
-# 
-# correlations <-  cor(master_dataset %>%
-#   select(NORM_PERC_PRICE, NORM_PERC_VOL, NORM_SMA, NORM_EWMA, MOM, MACD, STOCH.K, STOCH.D, RSI, VOR,
-#          FUTURE_CLASS_60))
-# corrplot(correlations,"circle")
-# 
-# correlations <-  cor(master_dataset %>%
-#   select(NORM_PERC_PRICE, NORM_PERC_VOL, NORM_SMA, NORM_EWMA, MOM, MACD, STOCH.K, STOCH.D, RSI, VOR,
-#          FUTURE_CLASS_240))
-# corrplot(correlations,"circle")
 ```
 
 ```{r}
 # Linear Model Short
 pred_lm_short <- step(lm(PERCENT_CHANGE_20 ~ NORM_PERC_PRICE + NORM_PERC_VOL + NORM_SMA + NORM_EWMA + MOM + MACD + STOCH.K + STOCH.D + RSI + VOR, train_df), direction = "both")
 
+# only kept RSI and MACD, low r2
 print(summary(pred_lm_short))
 ```
 
@@ -144,13 +137,16 @@ print(summary(pred_lm_short))
 # Linear Model Medium
 pred_lm_med <- step(lm(PERCENT_CHANGE_60 ~ NORM_PERC_PRICE + NORM_PERC_VOL + NORM_SMA + NORM_EWMA + MOM + MACD + STOCH.K + STOCH.D + RSI + VOR, train_df), direction = "both")
 
+# only kept MOM, RSI, Perc_Vol |  low r2
 print(summary(pred_lm_med))
 ```
 
 ```{r}
-# Linear Model
+# Linear Model Long
 pred_lm_long <- step(lm(PERCENT_CHANGE_240 ~ NORM_PERC_PRICE + NORM_PERC_VOL + NORM_SMA + NORM_EWMA + MOM + MACD + STOCH.K + STOCH.D + RSI + VOR, train_df), direction = "both")
 
+# Removed MOM, MACD
+# Dominated by SMA, EWMA, VOR
 print(summary(pred_lm_long))
 ```
 
@@ -163,7 +159,7 @@ print(summary(pred_glm_short))
 
 ```{r}
 # testing model against test dataset
-# rounding applies a threshold of 50% probability for survival
+# rounding applies a threshold of 50% probability for buy class
 predicted <- round(predict(pred_glm_short, test_df, type="response"),0)
 # place predictions and actual class into a dataframe
 results <- data.frame(predicted, actual=test_df$FUTURE_CLASS_20)
@@ -173,6 +169,7 @@ confusionMatrix(factor(predicted), factor(test_df$FUTURE_CLASS_20))
 ```
 
 ```{r}
+# logistic model medium
 pred_glm_med <- step(glm(FUTURE_CLASS_60 ~ NORM_PERC_PRICE + NORM_PERC_VOL + NORM_SMA + NORM_EWMA + MOM + MACD + STOCH.K + STOCH.D + RSI + VOR, train_df, family=binomial), direction = "both")
 
 print(summary(pred_glm_med))
@@ -180,7 +177,7 @@ print(summary(pred_glm_med))
 
 ```{r}
 # testing model against test dataset
-# rounding applies a threshold of 50% probability for survival
+# rounding applies a threshold of 50% probability for buy class
 predicted <- round(predict(pred_glm_med, test_df, type="response"),0)
 # place predictions and actual class into a dataframe
 results <- data.frame(predicted, actual=test_df$FUTURE_CLASS_60)
@@ -190,6 +187,7 @@ confusionMatrix(factor(predicted), factor(test_df$FUTURE_CLASS_60))
 ```
 
 ```{r}
+# logistic model long
 pred_glm_long <- step(glm(FUTURE_CLASS_240 ~ NORM_PERC_PRICE + NORM_PERC_VOL + NORM_SMA + NORM_EWMA + MOM + MACD + STOCH.K + STOCH.D + RSI + VOR, train_df, family=binomial), direction = "both")
 
 print(summary(pred_glm_long))
@@ -197,9 +195,9 @@ print(summary(pred_glm_long))
 
 ```{r}
 # testing model against test dataset
-# rounding applies a threshold of 50% probability for survival
+# rounding applies a threshold of 50% probability for buy class
 predicted <- round(predict(pred_glm_long, test_df, type="response"),0)
-# place predictions and actual class into a dataframe
+# place predictions and actual class into a dataframe 
 results <- data.frame(predicted, actual=test_df$FUTURE_CLASS_240)
 head(results)
 # Confusion Matrix with stats
@@ -207,35 +205,31 @@ confusionMatrix(factor(predicted), factor(test_df$FUTURE_CLASS_240))
 ```
 
 ```{r}
-#Predict classes of samples with class package
+# knn short class
 predicted = knn(train_df[,1:10],test_df[,1:10],train_df$FUTURE_CLASS_20,k=11)
-predicted
 # place predictions and actual class into a dataframe
-results <- data.frame(predicted, actual=test_df$FUTURE_CLASS_240)
+results <- data.frame(predicted, actual=test_df$FUTURE_CLASS_20)
 head(results)
 # Confusion Matrix with stats
-confusionMatrix(factor(predicted), factor(test_df$FUTURE_CLASS_240))
+confusionMatrix(factor(predicted), factor(test_df$FUTURE_CLASS_20))
 ```
 
 ```{r}
-#Predict classes of samples with class package
+# knn Medium Class
 predicted = knn(train_df[,1:10],test_df[,1:10],train_df$FUTURE_CLASS_60,k=11)
-predicted
 # place predictions and actual class into a dataframe
-results <- data.frame(predicted, actual=test_df$FUTURE_CLASS_240)
+results <- data.frame(predicted, actual=test_df$FUTURE_CLASS_60)
 head(results)
 # Confusion Matrix with stats
-confusionMatrix(factor(predicted), factor(test_df$FUTURE_CLASS_240))
+confusionMatrix(factor(predicted), factor(test_df$FUTURE_CLASS_60))
 ```
 
 ```{r}
-#Predict classes of samples with class package
+# knn long class
 predicted = knn(train_df[,1:10],test_df[,1:10],train_df$FUTURE_CLASS_240,k=11)
-predicted
 # place predictions and actual class into a dataframe
 results <- data.frame(predicted, actual=test_df$FUTURE_CLASS_240)
 head(results)
 # Confusion Matrix with stats
 confusionMatrix(factor(predicted), factor(test_df$FUTURE_CLASS_240))
 ```
-
