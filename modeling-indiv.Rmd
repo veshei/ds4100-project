@@ -197,7 +197,7 @@ print(summary(pred_glm_long))
 # testing model against test dataset
 # rounding applies a threshold of 50% probability for buy class
 predicted <- round(predict(pred_glm_long, test_df, type="response"),0)
-# place predictions and actual class into a dataframe
+# place predictions and actual class into a dataframe 
 results <- data.frame(predicted, actual=test_df$FUTURE_CLASS_240)
 head(results)
 # Confusion Matrix with stats
