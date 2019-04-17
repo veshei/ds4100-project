@@ -49,12 +49,12 @@ Input and Output from R Code
 -----
 
 An example of a stock table we generated. 
-```{r, example_data}
+```{r, example_data, message=FALSE, echo=TRUE, warning=FALSE}
 head(dbReadTable(conn = db, "AAPL"))
 ```
 
-An example of what a analyst may look at when viewing a stock. Comparing 50 day with 200 day 
-```{r} 
+An example of what an analyst may look at when viewing a stock. Comparing 50 day to 200 day chart series. 
+```{r, stock_charts, message=FALSE, echo=TRUE, warning=FALSE}
 #Stock graph for AAPL
 #Indicators shown are Momentum, WMA, SMA, MACD, and EVWMA
 
