@@ -2,7 +2,9 @@
 title: "ds-4100-project-modeling.Rmd"
 author: "Veronica Shei, Edward Wang, Ethan Tang"
 date: "3/23/2019"
-output: pdf_document
+output:
+  word_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
