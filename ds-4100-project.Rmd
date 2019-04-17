@@ -120,6 +120,8 @@ RSI <- function(ticker_df){
 
 ```{r}
 skipped_ticker <- c(" ")
+dbWriteTable(conn=db, name="MMM", value=MMM_df, row.names = FALSE, append = TRUE)
+
 ```
 
 ```{r}
@@ -140,14 +142,17 @@ for(ticker in sp500_tickers) {
               RSI = RSI(df),
               VOR = VOR(df)
               )
-    assign(paste(ticker,"_df", sep = ""),df)
+    #assign(paste(ticker,"_df", sep = ""),df)
+    
+    dbWriteTable(conn=db, name=as.character(ticker), value=df, row.names = FALSE, append = TRUE)
     
   }, warning = function(w) {
     print("warning")
   }, error = function(e) {
-    print("error")
+    print(e)
     
   })
+  
   Sys.sleep(5)
 }
 
