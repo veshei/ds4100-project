@@ -1,1 +1,1 @@
-ds-4100-project.Rmd filter=lfs diff=lfs merge=lfs -text
+*.Rmd filter=lfs diff=lfs merge=lfs -text
