@@ -1,0 +1,58 @@
+---
+output:
+  word_document: default
+  pdf_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rvest)
+library(tidyverse)
+library(RSQLite)
+library(fTrading)
+library(ggplot2)
+library(quantmod)
+db <- dbConnect(SQLite(), dbname = "ds4100_project_db.sqlite")
+```
+
+Problem Description
+-----
+
+  Stock markets serve an important function in any society, they play a pivotal role in the growth of the industry and commerce of the country and ultimately plays a large effect on the economy of a country. For many individual investors, investing in the stock market can seem like a daunting task. With the amount of data and advice available online, it becomes difficult for the average consumer to determine important factors and considerations when investing in stocks. Additionally, the large number of technical indicators ranging from simple moving averages to the stochastic oscillator can seem like foreign words to those not trained or educated in the financial field. 
+  
+  However, because investing smartly in stocks, is one of the key paths of wealth creation and is an important investment avenue that deters too many average consumers. Our hopes with this project is to utilize individual stock data from the Standard & Poor’s 500, a stock market index that tracks the top 500 United States corporations, historical market prices, and related technical indicators for each stock, to generate predictive analysis of whether to buy or sell a specific stock. We hope that this project helps everyday investor make more data-driven choices in determining which stocks to invest in that would beat the returns from the S&P 500 index. Because our algorithm takes into account the various different technical indicators and stock prices, this removes a lot of the calculations and understandings on the part of the average investor. For the more savvy investors, we hope our machine learning algorithms still serve as a strong basis for their purchase decisions. 
+
+Rationale for Data Collection
+-----
+  The S&P 500 is an American stock market index based on the market capitalizations of 500 large companies that have stock in common with those listed on NYSE, NASDAQ, or the CBOE BZX Exchange. We chose the S&P 500 for this project because we believed that the diverse constituency and weighting methodology it utilizes made it one of the best representations of the U.S. stock market. These features meant stocks in the S&P 500 would serve as a strong baseline of data for us to build our predictive models on. 
+  
+  We chose stocks in the S&P 500 over other well regarded indices like NASDAQ Composite index or the Dow Jones Industrial Average because the sheer number of corporations tracked by the S&P 500 outclasses the other similar indices. We believed that feeding more training data into our machine learning algorithms would only make our predictive analytics smarter and more accurate. Additionally, most of the stocks in the S&P 500 have a large amount of historical stock data available because the S&P 500 tracks large-cap firms, which tend to have a longer history on the public stock market in order to develop to that point. We also chose to limit our finding to the past 5 years of financial data to keep the size and scope of the data more manageable while also providing enough breadth for outliers to have any outsized effect on our predictions. 
+
+Process Justifications and Technical Choices
+---
+  The R library we used to get the S&P 500 data is Quantmod. We first scraped the S&P 500 Wikipedia page to retrieve a list of firm stock symbols for us to for loop through. Then, based on this list of symbols, we called the Quantmod function getSymbols to create 500 dataframes of each stock. Quantmod returned a dataset of clean variables that provided stock prices per day up to current day and spanning 20+ years of historical data. We then utilized the R library, fTrading, to calculate different technical indicators like SMA, EWMA, MOM, and more. We also wrote several of our own functions for technical indicators not covered by fTrading, such as percent values, percent change, and buy/sell indicators. We columb binded all of these technical indicators to the stock data of each S&P 500 firm. We then created 500 SQLite tables that properly mapped our table requirements out and were in third normal form. We wrote the data frames we had generated to these SQLite tables.
+  
+  Prior to piping in our data to the machine learning algorithms, we also made sure to remove any outsized outliers and normalize categories like price and volume. We determined outliers by plotting a histogram of the density of the different lengths of each stock table and removed tables with less than 1000 values. 
+
+Project Issues and Resolution
+-----
+  We ran into several issues during the course of this project, with the biggest barriers being data sourcing, amount of data, data transformations, and file size. Firstly, our team had difficult finding free sources of historical and current stock data in the available R library packages and API’s we found online. While we were initially intrigued by libraries like Quandl and AlphaVantage, both libraries either don’t release the prime data (like U.S. stock data) to free customers, or throttle the amount of calls a free user can make. Both of these limitations made these options unsustainable for our purposes as we needed needed to retrieve 5 years worth of data from 500 corporations.
+  
+  We then experimented with web scraping the data from Yahoo Finance. However we ran into issues of consistent data and throttled usage as Yahoo Finance blocks users who are web scraping a large amount of data. Because of how variable and fast changing web pages can be, we ran into many issues trying to consolidate and pull the data via web scraping. Additionally, this was a very slow process as we needed to put in system sleeps to prevent us from being blocked from the site.
+  
+  Ultimately, we were able to resolve our data collection issues by using the R library Quantmod, which provided free historical stock data on all the US stocks. Because this was an R library package and not an api for us to pull on, the built in functions and data made this process much faster and seamless than the two options mentioned above. 
+  
+  We encountered some issues with the amount of data to clean and transform. Firstly we had naming issues in our database as there was no direct way to loop through the 500 tables other than looping through the list of S&P stock names, meaning we had to utilize the get() and assign() functions so that we were calling the dataframe and not the string name. There is some efficiency issues in generating 5 years worth of data for 500 firms. Additionally, the sheer scope of this data made it harder for us to check for accuracy in our calculations. We worked through this issue by implementing all the data cleaning and transformations on a small subset of the data first and then scaling up by utilizing for loops. Also, because we only needed to transform, clean, and write the data to our database once, this was not a process that had to be repeated many times over. 
+  
+  Finally, we had issues with the large file size of our SQLite database file. Our team used Github for version control and our database file ended up being over the allowable file size of 100 mb. We were able to work through this issue by implementing Github Large File Storage (LFS). However, this was not a barrier we expected to encounter and learning to use Github LFS and rolling back our commits took up more time than expected. 
+
+Input and Output from R Code
+-----
+
+Insights and Potential Future work
+-----
+  Potential future work we foresee for this project is to increase the number of stocks or the number of years we feed into our predictive algorithms. We hope that with more data, we’d be able to increase the accuracy of our data. We could also expand the number of technical indicators used to see if that would improve the accuracy of our predictions. Another approach we could explore is to use different baseline data such as social media, fundamentals, or the economy to see if those are better predictors of the US stock market. We could also test out more predictive algorithms to determine the most accurate algorithm.  
+
+Works Cited
+-----
+Miller, Curtis. “An Introduction to Stock Market Data Analysis with R (Part 1).” Curtis Miller's Personal Website, 28 Mar. 2017, ntguardian.wordpress.com/2017/03/27/introduction-stock-market-data-r-1/.
+
