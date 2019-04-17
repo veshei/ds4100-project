@@ -142,50 +142,10 @@ get_percent_values <- function(ticker_df, type) {
 }
 ```
 
-```{r}
-skipped_ticker <- c(" ")
-
-dbWriteTable(conn=db, name="MMM", value=MMM_df, row.names = FALSE, append = TRUE)
-```
-
-```{r}
-sp500_tickers <- sp500_tickers[1:3]
-
-for(ticker in sp500_tickers) {
-  
-  print(ticker)
-  
-  tryCatch({
-    df <- get_stock_data(ticker)
-    df <- cbind(df,
-              PERCENT_PRICE = get_percent_values(df, "price"),
-              PERCENT_VOL = get_percent_values(df, "volume"),
-              SMA = get_SMA(df),
-              EWMA = get_EWMA(df),
-              NORM_SMA = normalize(df, 'SMA'),
-              NORM_EWMA = normalize(df, 'EWMA'),
-              MOM = MOM(df),
-              MACD = MACD(df),
-              STOCH = STOCH(df),
-              RSI = RSI(df),
-              VOR = VOR(df)
-              )
-    
-  }, warning = function(w) {
-    print("warning")
-  }, error = function(e) {
-    print(e)
-    
-  })
-  
-  Sys.sleep(5)
-}
-
-skipped_ticker
-```
-
 ```{r, table_setup, message=FALSE, echo=TRUE, warning=FALSE}
 #Code to setup all the tables we plan to use in SQLite
+sp500_tickers <- sp500_tickers[1:3]
+
 for (curr_tick in sp500_tickers) {
   ticker_query <- paste(
     "CREATE TABLE IF NOT EXISTS [", curr_tick,
@@ -212,20 +172,52 @@ for (curr_tick in sp500_tickers) {
 ```
 
 ```{r}
-dbListTables(db)
-dbListFields(db, "MMM")
+
+for(ticker in sp500_tickers) {
+  
+  print(ticker)
+  
+  tryCatch({
+    df <- get_stock_data(ticker)
+    df <- cbind(df,
+              PERCENT_PRICE = get_percent_values(df, "price"),
+              PERCENT_VOL = get_percent_values(df, "volume"),
+              SMA = get_SMA(df),
+              EWMA = get_EWMA(df),
+              NORM_SMA = normalize(df, 'SMA'),
+              NORM_EWMA = normalize(df, 'EWMA'),
+              MOM = MOM(df),
+              MACD = MACD(df),
+              STOCH = STOCH(df),
+              RSI = RSI(df),
+              VOR = VOR(df)
+              )
+    df_name <- paste(ticker, "_df", sep = "")
+    assign(df_name, df)
+  }, warning = function(w) {
+    print(w)
+  }, error = function(e) {
+    print(e)
+    
+  })
+  
+  tryCatch({
+    df_name <- paste(ticker, "_df", sep = "")
+    dbWriteTable(conn = db, name = as.character(ticker), value = get(df_name), 
+                 row.names = FALSE, overwrite = TRUE)
+  }, warning = function(w) {
+    print(w)
+  }, error = function(e) {
+    print(e)
+    
+  })
+  
+  Sys.sleep(5)
+}
 ```
 
 ```{r}
-sp500_tickers <- sp500_tickers[1:1]
-
-for (curr_tick in sp500_tickers) {
-  df_name <- paste(curr_tick, "_df", sep = "")
-  dbWriteTable(conn = db, name = as.character(curr_tick), value = get(df_name),
-             row.names = FALSE, overwrite = TRUE)
-  head(dbReadTable(conn = db, as.character(curr_tick)))
-}
-dbReadTable(conn = db, as.character(curr_tick))
+# dbReadTable(conn = db, as.character("ABBV"))
 ```
 
 
