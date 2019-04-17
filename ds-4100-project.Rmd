@@ -101,12 +101,6 @@ MACD <- function(ticker_df) {
 ```
 
 ```{r}
-VOR <- function(ticker_df) {
-  vorTA(ticker_df$High, ticker_df$Low) #volatility ratio
-}
-```
-
-```{r}
 STOCH <- function(ticker_df) {
   stochasticTA(ticker_df$Adjusted_Close, ticker_df$High, ticker_df$Low)
 }
@@ -119,6 +113,25 @@ RSI <- function(ticker_df){
 ```
 
 ```{r}
+VOR <- function(ticker_df) {
+  vorTA(ticker_df$High, ticker_df$Low) #volatility ratio
+}
+```
+
+```{r}
+normalize <- function(ticker_df, type) {
+  if(type == 'SMA') {
+    sma <- get_SMA(ticker_df)
+    return ((sma - min(sma)) / (max(sma) - min(sma)))
+  } else if (type == 'EWMA') {
+      ewma <- get_EWMA(ticker_df)
+      return ((ewma - min(ewma)) / (max(ewma) - min(ewma)))
+  }
+}
+normalize(MMM_df, 'SMA')
+```
+
+```{r}
 sp500_tickers <- sp500_tickers[1:1]
 
 for(ticker in sp500_tickers) {
@@ -126,6 +139,8 @@ for(ticker in sp500_tickers) {
   df <- cbind(df,
               SMA = get_SMA(df),
               EWMA = get_EWMA(df),
+              NORM_SMA = normalize(df, 'SMA'),
+              NORM_EWMA = normalize(df, 'EWMA'),
               MOM = MOM(df),
               MACD = MACD(df),
               STOCH = STOCH(df),
@@ -150,10 +165,10 @@ for (curr_tick in sp500_tickers) {
     Low INTEGER,
     PERCENT_VOL INTEGER,
     PERCENT_PRICE INTEGER,
-    NORM_SMA INTEGER,
-    NORM_EMA INTEGER,
     SMA INTEGER,
     EWMA INTEGER,
+    NORM_SMA INTEGER,
+    NORM_EWMA INTEGER,
     MOM INTEGER,
     MACD INTEGER,
     STOCHK INTEGER,
