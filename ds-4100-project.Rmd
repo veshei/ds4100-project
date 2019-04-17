@@ -76,19 +76,6 @@ VOR <- function(ticker_df) {
 }
 ```
 
-```{r, Normalization, message=FALSE, echo=TRUE, warning=FALSE}
-# Function to normalize the SMA and EWMA
-normalize <- function(ticker_df, type) {
-  if(type == 'SMA') {
-    sma <- get_SMA(ticker_df)
-    return ((sma - min(sma)) / (max(sma) - min(sma)))
-  } else if (type == 'EWMA') {
-      ewma <- get_EWMA(ticker_df)
-      return ((ewma - min(ewma)) / (max(ewma) - min(ewma)))
-  }
-}
-```
-
 ```{r, percent_values, message=FALSE, echo=TRUE, warning=FALSE}
 # Function to calculate the percent values for price and volume
 get_percent_values <- function(ticker_df, type) {
@@ -168,8 +155,6 @@ for(ticker in selected_tickers) {
         PERCENT_VOL = get_percent_values(get(ticker), "volume"),
         SMA = get_SMA(get(ticker)),
         EWMA = get_EWMA(get(ticker)),
-        NORM_SMA = normalize(get(ticker), 'SMA'),
-        NORM_EWMA = normalize(get(ticker), 'EWMA'),
         MOM = MOM(get(ticker)),
         MACD = MACD(get(ticker)),
         STOCH = STOCH(get(ticker)),
@@ -183,6 +168,14 @@ for(ticker in selected_tickers) {
         FUTURE_CLASS_240 = get_buy_class(get(ticker), 240)
   )
     assign(ticker, temp)
+}
+```
+
+```{r}
+for(ticker in selected_tickers) {
+  curr_val <- cbind(Date = rownames(get(ticker)), get(ticker))
+  rownames(curr_val) <- NULL
+  assign(ticker, curr_val)
 }
 ```
 
@@ -202,8 +195,6 @@ for (curr_tick in selected_tickers) {
     PERCENT_PRICE INTEGER,
     SMA INTEGER,
     EWMA INTEGER,
-    NORM_SMA INTEGER,
-    NORM_EWMA INTEGER,
     MOM INTEGER,
     MACD INTEGER,
     STOCHK INTEGER,
