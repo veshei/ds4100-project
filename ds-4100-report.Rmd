@@ -54,7 +54,7 @@ head(dbReadTable(conn = db, "AAPL"))
 ```
 
 An example of what a analyst may look at when viewing a stock. Comparing 50 day with 200 day 
-```{r}
+```{r} 
 #Stock graph for AAPL
 #Indicators shown are Momentum, WMA, SMA, MACD, and EVWMA
 
