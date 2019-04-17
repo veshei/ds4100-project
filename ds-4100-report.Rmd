@@ -47,6 +47,22 @@ Project Issues and Resolution
 
 Input and Output from R Code
 -----
+```{r}
+#Stock graph for AAPL
+#Indicators shown are Momentum, WMA, SMA, MACD, and EVWMA
+
+#Entire 5 years of data for AAPL
+getSymbols("AAPL", from='2014-10-16', to='2019-04-16')
+chartSeries(AAPL, TA = "addMomentum();addWMA();addSMA();addMACD();addEVWMA()", theme="white")
+
+#Display 200 day view starting from October 16th
+getSymbols("AAPL", from='2018-10-16', to='2019-04-16')
+chartSeries(AAPL, TA = "addMomentum();addWMA();addSMA();addMACD();addEVWMA()", theme="white",major.ticks='months',subset='first 28 weeks')
+
+#Displays 50 day view starting from Dec 17th
+getSymbols("AAPL", from='2018-12-16', to='2019-04-16')
+chartSeries(AAPL, TA = "addMomentum();addWMA();addSMA();addMACD();addEVWMA()", theme="white",major.ticks='months',subset='first 50 days')
+```
 
 Insights and Potential Future work
 -----
