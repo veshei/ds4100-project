@@ -233,7 +233,6 @@ for(ticker in selected_tickers) {
 ```
 
 
-
 ```{r}
 #Stock graph for AAPL
 #Indicators shown are Momentum, WMA, SMA, MACD, and EVWMA
