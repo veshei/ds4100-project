@@ -47,6 +47,10 @@ Project Issues and Resolution
 
 Input and Output from R Code
 -----
+An example of a stock table we generated. 
+```{r, example_data}
+head(dbReadTable(conn = db, "AAPL"))
+```
 
 Insights and Potential Future work
 -----
