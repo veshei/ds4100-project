@@ -55,5 +55,4 @@ Insights and Potential Future work
 Works Cited
 -----
 Miller, Curtis. “An Introduction to Stock Market Data Analysis with R (Part 1).” Curtis Miller's Personal Website, 28 Mar. 2017, ntguardian.wordpress.com/2017/03/27/introduction-stock-market-data-r-1/.
-=======
 
