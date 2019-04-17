@@ -21,13 +21,14 @@ db <- dbConnect(SQLite(), dbname = "ds4100_project_db.sqlite")
 
 ```{r}
 # database contains 619622 observations
-master_dataset = c()
-for (ticker in dbListTables(db)) {
-  curr_data = dbReadTable(db,ticker)
-  master_dataset = rbind(master_dataset, curr_data[,8:length(curr_data)])
-}
+master_dataset = dbReadTable(db,"AAPL")
+master_dataset = master_dataset[,8:length(master_dataset)]
 num_og_obs = dim(master_dataset)[1]
 print(num_og_obs)
+```
+
+```{r}
+dbListTables(db)
 ```
 
 ```{r}
@@ -73,13 +74,13 @@ master_dataset = cbind(master_dataset,
 num_curr_obs = dim(master_dataset)[1]
 num_curr_obs
 master_dataset = master_dataset[master_dataset$SMA != 0,]
-print(dim(master_dataset)[1])
+dim(master_dataset)[1]
 master_dataset = master_dataset[master_dataset$MOM != 0,]
-print(dim(master_dataset)[1])
+dim(master_dataset)[1]
 master_dataset = master_dataset[master_dataset$RSI != 0,]
-print(dim(master_dataset)[1])
+dim(master_dataset)[1]
 master_dataset = master_dataset[master_dataset$RSI != 1,]
-print(dim(master_dataset)[1])
+dim(master_dataset)[1]
 ```
 
 ```{r}
@@ -206,14 +207,35 @@ confusionMatrix(factor(predicted), factor(test_df$FUTURE_CLASS_240))
 ```
 
 ```{r}
-ggplot(master_dataset) + geom_bar(aes(x=FUTURE_CLASS_20))
-ggplot(master_dataset) + geom_bar(aes(x=FUTURE_CLASS_60))
-ggplot(master_dataset) + geom_bar(aes(x=FUTURE_CLASS_240))
+#Predict classes of samples with class package
+predicted = knn(train_df[,1:10],test_df[,1:10],train_df$FUTURE_CLASS_20,k=11)
+predicted
+# place predictions and actual class into a dataframe
+results <- data.frame(predicted, actual=test_df$FUTURE_CLASS_240)
+head(results)
+# Confusion Matrix with stats
+confusionMatrix(factor(predicted), factor(test_df$FUTURE_CLASS_240))
 ```
 
 ```{r}
-ggplot(master_dataset) + geom_histogram(aes(x=PERCENT_CHANGE_20))
-ggplot(master_dataset) + geom_histogram(aes(x=PERCENT_CHANGE_60))
-ggplot(master_dataset) + geom_histogram(aes(x=PERCENT_CHANGE_240))
+#Predict classes of samples with class package
+predicted = knn(train_df[,1:10],test_df[,1:10],train_df$FUTURE_CLASS_60,k=11)
+predicted
+# place predictions and actual class into a dataframe
+results <- data.frame(predicted, actual=test_df$FUTURE_CLASS_240)
+head(results)
+# Confusion Matrix with stats
+confusionMatrix(factor(predicted), factor(test_df$FUTURE_CLASS_240))
+```
+
+```{r}
+#Predict classes of samples with class package
+predicted = knn(train_df[,1:10],test_df[,1:10],train_df$FUTURE_CLASS_240,k=11)
+predicted
+# place predictions and actual class into a dataframe
+results <- data.frame(predicted, actual=test_df$FUTURE_CLASS_240)
+head(results)
+# Confusion Matrix with stats
+confusionMatrix(factor(predicted), factor(test_df$FUTURE_CLASS_240))
 ```
 
