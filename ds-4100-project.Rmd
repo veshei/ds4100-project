@@ -26,7 +26,7 @@ sp500_tickers <- replace(sp500_tickers, sp500_tickers == "BF.B", "BF-B")
 ```
 
 ```{r, SMA, message=FALSE, echo=TRUE, warning=FALSE}
-#Return the simple moving average
+#Return the simple moving average.
 #The SMA is calculated as the arithmetic average of an asset's price over some period.
 #The SMA is a technical indicator for determining if an asset price will continue or reverse a bull or bear trend.
 get_SMA <- function(ticker_df) {
@@ -37,7 +37,7 @@ get_SMA <- function(ticker_df) {
 ```
 
 ```{r, EWMA, message=FALSE, echo=TRUE, warning=FALSE}
-#Return the Exponentially Weighted Moving Average
+#Return the Exponentially Weighted Moving Average.
 #SMA weights each return evenly, but data but returns from a year ago do not represent what returns would be the last week.
 #EWMA introduces lambda, which is called the smoothing parameter, fixing the problem by giving recent returns greater weight on the variance.
 get_EWMA <- function(ticker_df) {
@@ -46,10 +46,10 @@ get_EWMA <- function(ticker_df) {
 ```
 
 ```{r, MOM, message=FALSE, echo=TRUE, warning=FALSE}
-#Return the Momentum Indicator
-#Momentum mesaures the speed/velocity of price changes (rate of the rise and fall of stock prices)
-#From the standpoint of trending, momentum is a very useful indicator of strength or weakness in the issue's price
-#Found to be more useful during times of a rising market rather than falling
+#Return the Momentum Indicator.
+#Momentum mesaures the speed/velocity of price changes (rate of the rise and fall of stock prices).
+#From the standpoint of trending, momentum is a very useful indicator of strength or weakness in the issue's price.
+#It has been found to be more useful during times of a rising market rather than falling.
 MOM <- function(ticker_df) {
   momTA(ticker_df[,6]) #momentum 
 }
@@ -57,7 +57,7 @@ MOM <- function(ticker_df) {
 
 ```{r, MACD, message=FALSE, echo=TRUE, warning=FALSE}
 #Return the Moving Average Convergence Divergence
-# trend-following momentum indicator that shows the relationship between two moving averages of a security's price
+# Trend-following momentum indicator that shows the relationship between two moving averages of a security's price.
 MACD <- function(ticker_df) {
   macdTA(ticker_df[,6]) 
 }
@@ -81,16 +81,16 @@ RSI <- function(ticker_df){
 ```
 
 ```{r, VOR, message=FALSE, echo=TRUE, warning=FALSE}
-# Return the volatility ratio
+# Return the volatility ratio.
 # measure that helps investors follow the volatility of a stock's price. 
-# used to identify price patterns and breakouts
+# used to identify price patterns and breakouts.
 VOR <- function(ticker_df) {
   vorTA(ticker_df[,2], ticker_df[,3])
 }
 ```
 
 ```{r, percent_values, message=FALSE, echo=TRUE, warning=FALSE}
-# Function to calculate the percent values for price and volume
+# Function to calculate the percent values for price and volume.
 get_percent_values <- function(ticker_df, type) {
   if (type == "price") {
     curr_val <- (dplyr::lead(ticker_df[,6], 1) - ticker_df[,6]) / ticker_df[,6] * 100
@@ -103,8 +103,8 @@ get_percent_values <- function(ticker_df, type) {
 ```
 
 ```{r, future_percent_change, message=FALSE, echo=TRUE, warning=FALSE}
-# Function to calculate the future percent change of a stock
-# num_days is how the difference is calculated: use 20, 60, 240
+# Function to calculate the future percent change of a stock.
+# num_days is how the difference is calculated: use 20, 60, 240.
 get_future_percent_change <- function(ticker_df, num_days) {
   curr_val <- (dplyr::lead(ticker_df[,6], num_days) - ticker_df[,6]) /
       ticker_df[,6] * 100
@@ -123,7 +123,7 @@ get_buy_class <- function(ticker_df, num_days) {
 
 
 ```{r, stock_data, message=FALSE, echo=TRUE, warning=FALSE}
-# Function to pull the stock data for 5 years for the S&P 500 companies from quant mod
+# Function to pull the stock data for 5 years for the S&P 500 companies from quant mod.
 for(ticker in sp500_tickers) {
   getSymbols(ticker, from='2014-04-16', to='2019-04-16')
   assign(ticker, data.frame(get(ticker)))
@@ -132,7 +132,7 @@ for(ticker in sp500_tickers) {
 ```
 
 ```{r, outliers, message=FALSE, echo=TRUE, warning=FALSE}
-# Function to remove outliers from the data based on the observed lengths
+# Function to remove outliers from the data based on the observed lengths.
 selected_tickers = c()
 for(ticker in sp500_tickers) {
   if (dim(get(ticker))[1] > 1000) {
@@ -142,7 +142,7 @@ for(ticker in sp500_tickers) {
 ```
 
 ```{r, lengths, message=FALSE, echo=TRUE, warning=FALSE}
-# Function to map all the stock data frames lengths into a table
+# Function to map all the stock data frames lengths into a table.
 observation_lengths = c()
 for(ticker in sp500_tickers) {
   observation_lengths <- data.frame(lengths = rbind(observation_lengths,
