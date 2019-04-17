@@ -1,0 +1,213 @@
+---
+title: "ds-4100-project.Rmd"
+author: "Veronica Shei, Edward Wang, Ethan Tang"
+date: "3/23/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rvest)
+library(tidyverse)
+library(RSQLite)
+library(fTrading)
+library(ggplot2)
+library(quantmod)
+db <- dbConnect(SQLite(), dbname = "ds4100_project_db.sqlite")
+```
+
+#retrieve S&P 500 company tickers
+```{r}
+sp500_page <- read_html("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies")
+sp500_tickers <- sp500_page %>% html_nodes("#constituents td:nth-child(2)") %>% html_text()
+sp500_tickers <- replace(sp500_tickers, sp500_tickers == "BRK.B", "BRK-B")
+sp500_tickers <- replace(sp500_tickers, sp500_tickers == "BF.B", "BF-B")
+sp500_tickers
+```
+
+```{r}
+get_SMA <- function(ticker_df) {
+  sma <- SMA(ticker_df[,6]) #simple moving average
+  sma <- replace_na(sma, 0)
+  sma
+}
+```
+
+```{r}
+# need to normalize before
+get_EWMA <- function(ticker_df) {
+  EWMA(ticker_df[,6], lambda = .1) #exponentially weighted moving average
+}
+```
+
+```{r}
+MOM <- function(ticker_df) {
+  momTA(ticker_df[,6]) #momentum 
+}
+```
+
+```{r}
+MACD <- function(ticker_df) {
+  macdTA(ticker_df[,6]) #moving average conversion to divergents
+}
+```
+
+```{r}
+STOCH <- function(ticker_df) {
+  stochasticTA(ticker_df[,4], ticker_df[,2], ticker_df[,3])
+}
+```
+
+```{r}
+RSI <- function(ticker_df){
+  rsiTA(ticker_df[,6]) #relative strength index
+}
+```
+
+```{r}
+VOR <- function(ticker_df) {
+  vorTA(ticker_df[,2], ticker_df[,3]) #volatility ratio
+}
+```
+
+```{r}
+normalize <- function(ticker_df, type) {
+  if(type == 'SMA') {
+    sma <- get_SMA(ticker_df)
+    return ((sma - min(sma)) / (max(sma) - min(sma)))
+  } else if (type == 'EWMA') {
+      ewma <- get_EWMA(ticker_df)
+      return ((ewma - min(ewma)) / (max(ewma) - min(ewma)))
+  }
+}
+```
+
+```{r}
+get_percent_values <- function(ticker_df, type) {
+  if (type == "price") {
+    curr_val <- (dplyr::lead(ticker_df[,6], 1) - ticker_df[,6]) / ticker_df[,6] * 100
+  } else if (type == "volume") {
+    curr_val <- (dplyr::lead(ticker_df[,5], 1) - ticker_df[,5]) / ticker_df[,5] * 100
+  }
+  curr_val <- c(0, curr_val[1:length(curr_val) - 1])
+  curr_val
+}
+```
+
+```{r}
+# num_days is how the difference is calculated: use 20, 60, 240
+get_future_percent_change <- function(ticker_df, num_days) {
+  curr_val <- (dplyr::lead(ticker_df[,6], num_days) - ticker_df[,6]) /
+      ticker_df[,6] * 100
+  curr_val
+}
+```
+
+```{r}
+# num_months is how the difference is calculated: use 20, 60, 240
+get_buy_class <- function(ticker_df, num_days) {
+  buy_class <- dplyr::lead(ticker_df[,6], num_days) > ticker_df[,6]
+  as.numeric(buy_class)
+}
+```
+
+
+```{r}
+for(ticker in sp500_tickers) {
+  getSymbols(ticker, from='2014-04-16', to='2019-04-16')
+  assign(ticker, data.frame(get(ticker)))
+  assign(ticker, na.omit(get(ticker)))
+}
+```
+
+```{r}
+selected_tickers = c()
+for(ticker in sp500_tickers) {
+  if (dim(get(ticker))[1] > 1000) {
+    selected_tickers <- rbind(selected_tickers, ticker)
+  }
+}
+```
+
+```{r}
+observation_lengths = c()
+for(ticker in sp500_tickers) {
+  observation_lengths <- data.frame(lengths = rbind(observation_lengths,
+                               dim(get(ticker))[1]))
+}
+observation_lengths
+```
+
+```{r}
+ggplot(observation_lengths, aes(x= lengths)) + 
+  geom_histogram(aes(y=..density..),
+                 binwidth= 500,
+                 colour="black", fill="white") +
+  geom_density(alpha=.2, fill="#FF6666")
+```
+
+```{r}
+for(ticker in selected_tickers) {
+    temp <- cbind(get(ticker),
+        PERCENT_PRICE = get_percent_values(get(ticker), "price"),
+        PERCENT_VOL = get_percent_values(get(ticker), "volume"),
+        SMA = get_SMA(get(ticker)),
+        EWMA = get_EWMA(get(ticker)),
+        NORM_SMA = normalize(get(ticker), 'SMA'),
+        NORM_EWMA = normalize(get(ticker), 'EWMA'),
+        MOM = MOM(get(ticker)),
+        MACD = MACD(get(ticker)),
+        STOCH = STOCH(get(ticker)),
+        RSI = RSI(get(ticker)),
+        VOR = VOR(get(ticker)),
+        PERCENT_CHANGE_20 = get_future_percent_change(get(ticker), 20),
+        PERCENT_CHANGE_60 = get_future_percent_change(get(ticker), 60),
+        PERCENT_CHANGE_240 = get_future_percent_change(get(ticker), 240),
+        FUTURE_CLASS_20 = get_buy_class(get(ticker), 20),
+        FUTURE_CLASS_60 = get_buy_class(get(ticker), 60),
+        FUTURE_CLASS_240 = get_buy_class(get(ticker), 240)
+  )
+    assign(ticker, temp)
+}
+```
+
+```{r, table_setup, message=FALSE, echo=TRUE, warning=FALSE}
+#Code to setup all the tables we plan to use in SQLite
+for (curr_tick in selected_tickers) {
+  ticker_query <- paste(
+    "CREATE TABLE IF NOT EXISTS [", curr_tick,
+    "] (Date TEXT PRIMARY KEY,
+    Open INTEGER,
+    High INTEGER,
+    Low INTEGER,
+    Close INTEGER,
+    Volume INTEGER,
+    Adjusted INTEGER,
+    PERCENT_VOL INTEGER,
+    PERCENT_PRICE INTEGER,
+    SMA INTEGER,
+    EWMA INTEGER,
+    NORM_SMA INTEGER,
+    NORM_EWMA INTEGER,
+    MOM INTEGER,
+    MACD INTEGER,
+    STOCHK INTEGER,
+    STOCHD INTEGER,
+    RSI INTEGER,
+    VOR INTEGER,
+    PERCENT_CHANGE_20 INTEGER,
+    PERCENT_CHANGE_60 INTEGER,
+    PERCENT_CHANGE_240 INTEGER,
+    FUTURE_CLASS_20 INTEGER,
+    FUTURE_CLASS_60 INTEGER,
+    FUTURE_CLASS_240 INTEGER)", sep="")
+  dbSendQuery(db, ticker_query)
+}
+```
+
+```{r}
+for(ticker in selected_tickers) {
+  dbWriteTable(conn = db, name = as.character(ticker), value = get(ticker),
+                 row.names = FALSE, overwrite = TRUE)
+}
+```
