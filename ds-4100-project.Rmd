@@ -132,11 +132,25 @@ normalize(MMM_df, 'SMA')
 ```
 
 ```{r}
+get_percent_values <- function(ticker_df, type) {
+  if (type == "price") {
+    curr_val <- (dplyr::lead(ticker_df$Adjusted_Close, 1) - ticker_df$Adjusted_Close) / ticker_df$Adjusted_Close * 100
+  } else if (type == "volume") {
+    curr_val <- (dplyr::lead(ticker_df$Volume, 1) - ticker_df$Volume) / ticker_df$Volume * 100
+  }
+  curr_val <- c(0, curr_val[1:length(curr_val) - 1])
+  curr_val
+}
+```
+
+```{r}
 sp500_tickers <- sp500_tickers[1:1]
 
 for(ticker in sp500_tickers) {
   df <- get_stock_data(ticker)
   df <- cbind(df,
+              PERCENT_PRICE = get_percent_values(df, "price"),
+              PERCENT_VOL = get_percent_values(df, "volume"),
               SMA = get_SMA(df),
               EWMA = get_EWMA(df),
               NORM_SMA = normalize(df, 'SMA'),
